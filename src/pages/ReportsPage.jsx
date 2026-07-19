@@ -55,7 +55,7 @@ function Alert({ type = 'warning', children }) {
 }
 
 export default function ReportsPage() {
-  const { teachers, classes, subjects, timetables, settings } = useStore();
+  const { teachers, classes, subjects, timetables, settings, combinedGroups = [] } = useStore();
 
   const classTimetables   = timetables.classTimetables   || {};
   const teacherTimetables = timetables.teacherTimetables || {};
@@ -65,7 +65,15 @@ export default function ReportsPage() {
   const teacherStats = useMemo(() => {
     return teachers.map((t) => {
       const assignedSubjects = subjects.filter((s) => s.teacherId === t.id);
-      const requiredPeriods  = assignedSubjects.reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
+      
+      const nonGroup = assignedSubjects.filter((s) => !s.combinedGroupId).reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
+      const uniqueGids = [...new Set(assignedSubjects.filter((s) => s.combinedGroupId).map((s) => s.combinedGroupId))];
+      const groupSum = uniqueGids.reduce((sum, gid) => {
+        const group = combinedGroups.find((g) => g.id === gid);
+        return sum + (group ? Number(group.requiredPeriods) : 0);
+      }, 0);
+      const requiredPeriods = nonGroup + groupSum;
+
       const distinctClasses  = [...new Set(assignedSubjects.map((s) => s.classId))];
 
       // Scheduled periods from timetable
@@ -91,13 +99,21 @@ export default function ReportsPage() {
         overloaded,
       };
     }).sort((a, b) => b.requiredPeriods - a.requiredPeriods);
-  }, [teachers, subjects, timetables]);
+  }, [teachers, subjects, timetables, combinedGroups]);
 
   /* ── Compute class stats ── */
   const classStats = useMemo(() => {
     return classes.map((cls) => {
       const clsSubjects    = subjects.filter((s) => s.classId === cls.id);
-      const totalPeriods   = clsSubjects.reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
+      
+      const nonGroup = clsSubjects.filter((s) => !s.combinedGroupId).reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
+      const uniqueGids = [...new Set(clsSubjects.filter((s) => s.combinedGroupId).map((s) => s.combinedGroupId))];
+      const groupSum = uniqueGids.reduce((sum, gid) => {
+        const group = combinedGroups.find((g) => g.id === gid);
+        return sum + (group ? Number(group.requiredPeriods) : 0);
+      }, 0);
+      const totalPeriods = nonGroup + groupSum;
+
       const missingTeacher = clsSubjects.filter((s) => !s.teacherId).length;
       const electiveCount  = clsSubjects.filter((s) => s.isElective).length;
 
@@ -120,7 +136,7 @@ export default function ReportsPage() {
         coverage,
       };
     }).sort((a, b) => b.totalPeriods - a.totalPeriods);
-  }, [classes, subjects, settings, timetables]);
+  }, [classes, subjects, settings, timetables, combinedGroups]);
 
   /* ── Global alerts ── */
   const alerts = useMemo(() => {
@@ -171,7 +187,16 @@ export default function ReportsPage() {
   }, [subjects, classTimetables, classes, timetables]);
 
   /* ── Summary numbers ── */
-  const totalRequiredPeriods = subjects.reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
+  const totalRequiredPeriods = classes.reduce((sum, cls) => {
+    const clsSubjects = subjects.filter((s) => s.classId === cls.id);
+    const nonGroup = clsSubjects.filter((s) => !s.combinedGroupId).reduce((sSum, s) => sSum + (Number(s.requiredPeriods) || 0), 0);
+    const uniqueGids = [...new Set(clsSubjects.filter((s) => s.combinedGroupId).map((s) => s.combinedGroupId))];
+    const groupSum = uniqueGids.reduce((gSum, gid) => {
+      const group = combinedGroups.find((g) => g.id === gid);
+      return gSum + (group ? Number(group.requiredPeriods) : 0);
+    }, 0);
+    return sum + nonGroup + groupSum;
+  }, 0);
   const schedulableSlots = settings.workingDays.length * (settings.periodsPerDay - (settings.breakPeriods || []).length) * classes.length;
 
   return (
@@ -290,7 +315,13 @@ export default function ReportsPage() {
                 {/* Unique subject names */}
                 {[...new Set(subjects.map((s) => s.name))].map((name) => {
                   const subs = subjects.filter((s) => s.name === name);
-                  const totalPeriods = subs.reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
+                  const nonGroup = subs.filter((s) => !s.combinedGroupId).reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
+                  const uniqueGids = [...new Set(subs.filter((s) => s.combinedGroupId).map((s) => s.combinedGroupId))];
+                  const groupSum = uniqueGids.reduce((sum, gid) => {
+                    const group = combinedGroups.find((g) => g.id === gid);
+                    return sum + (group ? Number(group.requiredPeriods) : 0);
+                  }, 0);
+                  const totalPeriods = nonGroup + groupSum;
                   const sampleColor = subs[0]?.color || '#6366f1';
                   return (
                     <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid var(--color-border)' }}>

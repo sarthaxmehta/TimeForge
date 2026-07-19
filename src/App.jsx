@@ -35,15 +35,23 @@ const PAGE_MAP = {
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
-  const { settings, teachers, classes, subjects } = useStore();
+  const { settings, teachers, classes, subjects, combinedGroups = [] } = useStore();
 
   const ActivePage = PAGE_MAP[activeTab] || Dashboard;
   const groups = [...new Set(NAV_ITEMS.map((n) => n.group))];
 
   // Notification dots
   const hasIssues = {
-    reports: teachers.some((t) => subjects.filter((s) => s.teacherId === t.id).reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0) > t.maxPeriods) ||
-             subjects.some((s) => !s.teacherId),
+    reports: teachers.some((t) => {
+      const assignedSubjects = subjects.filter((s) => s.teacherId === t.id);
+      const nonGroup = assignedSubjects.filter((s) => !s.combinedGroupId).reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
+      const uniqueGids = [...new Set(assignedSubjects.filter((s) => s.combinedGroupId).map((s) => s.combinedGroupId))];
+      const groupSum = uniqueGids.reduce((sum, gid) => {
+        const group = combinedGroups.find((g) => g.id === gid);
+        return sum + (group ? Number(group.requiredPeriods) : 0);
+      }, 0);
+      return (nonGroup + groupSum) > t.maxPeriods;
+    }) || subjects.some((s) => !s.teacherId),
   };
 
   return (

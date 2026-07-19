@@ -8,11 +8,20 @@ import {
 import { showToast } from '../components/Toast';
 
 export default function Dashboard({ onNavigate }) {
-  const { teachers, classes, subjects, timetables, settings, loadSampleData } = useStore();
+  const { teachers, classes, subjects, timetables, settings, loadSampleData, combinedGroups = [] } = useStore();
 
   const classTimetables = timetables.classTimetables || {};
   const timetableCount  = Object.keys(classTimetables).length;
-  const totalPeriods    = subjects.reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
+  const totalPeriods    = classes.reduce((sum, cls) => {
+    const clsSubjects = subjects.filter((s) => s.classId === cls.id);
+    const nonGroup = clsSubjects.filter((s) => !s.combinedGroupId).reduce((sSum, s) => sSum + (Number(s.requiredPeriods) || 0), 0);
+    const uniqueGids = [...new Set(clsSubjects.filter((s) => s.combinedGroupId).map((s) => s.combinedGroupId))];
+    const groupSum = uniqueGids.reduce((gSum, gid) => {
+      const group = combinedGroups.find((g) => g.id === gid);
+      return gSum + (group ? Number(group.requiredPeriods) : 0);
+    }, 0);
+    return sum + nonGroup + groupSum;
+  }, 0);
   const missingTeachers = subjects.filter((s) => !s.teacherId).length;
   const schedulablePeriods = (settings.periods || []).filter((p) => ['class'].includes(p.type)).length;
   const completionPct = (() => {
