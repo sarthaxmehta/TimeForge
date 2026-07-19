@@ -121,7 +121,10 @@ export default function SubstitutionsPage() {
         const schedSlot = teacherSchedule[periodIdx];
 
         // Check if scheduled to teach something else in base timetable
-        if (schedSlot && !schedSlot.startsWith('__')) return false;
+        if (schedSlot) {
+          if (typeof schedSlot === 'object') return false; // scheduled class
+          if (typeof schedSlot === 'string' && !schedSlot.startsWith('__')) return false; // other class
+        }
 
         // Also check if already assigned as a substitute in another class at this same period
         const isAlreadySubbing = substitutions.some(

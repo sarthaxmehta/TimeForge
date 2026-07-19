@@ -841,6 +841,22 @@ const useStore = create(
           absences: [],
           substitutions: [],
         }),
+
+      loadSampleData: () =>
+        set({
+          settings: {
+            ...DEFAULT_SETTINGS,
+            institutionName: "TimeForge International Academy",
+          },
+          teachers: INITIAL_TEACHERS,
+          classes: INITIAL_CLASSES,
+          subjects: INITIAL_SUBJECTS,
+          subjectTemplates: INITIAL_TEMPLATES,
+          departments: [],
+          timetables: {},
+          absences: [],
+          substitutions: [],
+        }),
     }),
     { name: 'timeforge-storage-v5' } // Incremented the persist key to avoid loading old state versions incompatibly
   )

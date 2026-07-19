@@ -5,9 +5,10 @@ import {
   ArrowRight, CheckCircle, Clock, AlertCircle, BarChart2,
   Zap, Settings, ChevronRight
 } from 'lucide-react';
+import { showToast } from '../components/Toast';
 
 export default function Dashboard({ onNavigate }) {
-  const { teachers, classes, subjects, timetables, settings } = useStore();
+  const { teachers, classes, subjects, timetables, settings, loadSampleData } = useStore();
 
   const classTimetables = timetables.classTimetables || {};
   const timetableCount  = Object.keys(classTimetables).length;
@@ -80,6 +81,40 @@ export default function Dashboard({ onNavigate }) {
 
   return (
     <div>
+      {/* ── Demo Data Banner ── */}
+      {teachers.length === 0 && classes.length === 0 && (
+        <div style={{
+          background: 'linear-gradient(135deg, #eef2ff, #f5f3ff)',
+          border: '1.5px dashed var(--color-primary-light)',
+          borderRadius: 'var(--radius-xl)',
+          padding: '1.5rem',
+          marginBottom: '1.5rem',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '1rem',
+          flexWrap: 'wrap',
+          boxShadow: 'var(--shadow-sm)'
+        }}>
+          <div>
+            <h3 style={{ color: 'var(--color-primary)', marginBottom: '0.25rem' }}>👋 Get Started with Sample Data</h3>
+            <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', maxWidth: '600px', fontWeight: 600 }}>
+              TimeForge is currently empty. Click the button to instantly preload sample teachers, classes, subjects, and periods so you can test features like substitution coverage planner and automated generation.
+            </p>
+          </div>
+          <button
+            className="btn btn-primary"
+            onClick={() => {
+              loadSampleData();
+              showToast('Sample data loaded successfully!', 'success');
+            }}
+            style={{ padding: '0.625rem 1.25rem' }}
+          >
+            <Zap size={16} /> Load Demo Data
+          </button>
+        </div>
+      )}
+
       {/* ── Hero ── */}
       <div style={{
         borderRadius: 'var(--radius-xl)',
