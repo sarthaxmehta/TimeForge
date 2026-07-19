@@ -538,10 +538,10 @@ const useStore = create(
   persist(
     (set, get) => ({
       settings: DEFAULT_SETTINGS,
-      teachers: INITIAL_TEACHERS,
-      classes: INITIAL_CLASSES,
-      subjects: INITIAL_SUBJECTS,
-      subjectTemplates: INITIAL_TEMPLATES,
+      teachers: [],
+      classes: [],
+      subjects: [],
+      subjectTemplates: [],
       departments: [],        // { id, name, headId }
       timetables: {},
       absences: [],           // { id, date, teacherId }
