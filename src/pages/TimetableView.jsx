@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import useStore from '../store/useStore';
-import { generateTimetable, DAY_NAMES, formatPeriodTime } from '../utils/generator';
+import { generateTimetable, validateTimetable, DAY_NAMES, formatPeriodTime } from '../utils/generator';
 import { exportToPDF, exportAllTimetablesPDF } from '../utils/pdfExport';
-import { Play, Download, Printer, Users, BookOpen, FileDown, RefreshCw, Coffee, Zap, Calendar as CalendarIcon, ClipboardList } from 'lucide-react';
+import { Play, Download, Printer, Users, BookOpen, FileDown, RefreshCw, Coffee, Zap, Calendar as CalendarIcon, ClipboardList, AlertTriangle, AlertCircle } from 'lucide-react';
 import { showToast } from '../components/Toast';
 
 /* ─── Helpers ─── */
@@ -522,7 +522,7 @@ function TeacherTimetableGrid({ teacherId, teacherTimetable, subjects, classes, 
    MAIN PAGE
 ═══════════════════════════════════════ */
 export default function TimetableView() {
-  const { classes, subjects, teachers, settings, timetables, absences, substitutions, setTimetables, clearTimetables } = useStore();
+  const { classes, subjects, teachers, settings, timetables, absences, substitutions, setTimetables, clearTimetables, combinedGroups = [] } = useStore();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting,  setIsExporting]  = useState(false);
   const [viewMode,     setViewMode]     = useState('class');
@@ -538,6 +538,11 @@ export default function TimetableView() {
   const classTimetables   = timetables.classTimetables   || {};
   const teacherTimetables = timetables.teacherTimetables || {};
   const hasData = Object.keys(classTimetables).length > 0;
+
+  const conflicts = useMemo(() => {
+    if (!hasData) return [];
+    return validateTimetable(classTimetables, teacherTimetables, classes, subjects, teachers, settings);
+  }, [classTimetables, teacherTimetables, classes, subjects, teachers, settings, hasData]);
 
   const defaultId = viewMode === 'class' ? classes[0]?.id : teachers[0]?.id;
   const effectiveId = activeId || defaultId;
@@ -661,6 +666,95 @@ export default function TimetableView() {
         </div>
       ) : (
         <div>
+          {/* ── Conflict / Success Audit Panel ── */}
+          {conflicts.length > 0 ? (
+            <div className="card shadow-sm animate-fade-in" style={{ marginBottom: '1.25rem', borderLeft: '4px solid var(--color-warning)', background: '#fffbeb' }}>
+              <div className="card-body" style={{ padding: '1.25rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', marginBottom: '0.5rem' }}>
+                  <AlertTriangle size={20} color="var(--color-warning)" style={{ flexShrink: 0 }} />
+                  <span style={{ fontWeight: 800, fontSize: '1rem', color: '#92400e' }}>
+                    Scheduling Audit: {conflicts.length} Period Shortfall{conflicts.length > 1 ? 's' : ''} Detected
+                  </span>
+                </div>
+                <p style={{ fontSize: '0.8125rem', color: '#78350f', marginBottom: '0.75rem', lineHeight: '1.4' }}>
+                  The timetable was successfully generated without double-bookings. However, some subjects could not be fully scheduled because of resource constraints (e.g., teachers at their workload caps or class slots fully occupied).
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: '0.75rem' }}>
+                  {conflicts.map((c, i) => {
+                    const sub = subjects.find(s => s.id === c.subjectId);
+                    const teacher = sub ? teachers.find(t => t.id === sub.teacherId) : null;
+                    
+                    let assignedPeriods = 0;
+                    if (teacher) {
+                      const teacherSubjects = subjects.filter(s => s.teacherId === teacher.id);
+                      const nonGroup = teacherSubjects.filter(s => !s.combinedGroupId).reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
+                      const uniqueGids = [...new Set(teacherSubjects.filter(s => s.combinedGroupId).map(s => s.combinedGroupId))];
+                      const groupSum = uniqueGids.reduce((sum, gid) => {
+                        const group = combinedGroups.find(g => g.id === gid);
+                        return sum + (group ? Number(group.requiredPeriods) : 0);
+                      }, 0);
+                      assignedPeriods = nonGroup + groupSum;
+                    }
+
+                    let scheduledPeriods = 0;
+                    if (teacher && teacherTimetables[teacher.id]) {
+                      Object.values(teacherTimetables[teacher.id]).forEach((day) => {
+                        Object.values(day).forEach((slot) => {
+                          if (slot && typeof slot === 'object' && slot.subjectId) {
+                            scheduledPeriods++;
+                          }
+                        });
+                      });
+                    }
+
+                    let tip = '';
+                    if (teacher && assignedPeriods > (teacher.maxPeriods || 0)) {
+                      tip = `Teacher ${teacher.name} is overloaded (${assignedPeriods} periods assigned, limit is ${teacher.maxPeriods}). Increase their max periods in Teachers page.`;
+                    } else if (teacher && scheduledPeriods >= (teacher.maxPeriods || 0)) {
+                      tip = `Teacher ${teacher.name} has hit their max periods limit (${teacher.maxPeriods}) in this schedule.`;
+                    } else {
+                      tip = `The teacher is busy at other classes or class slots are fully filled. Adjust required periods or period slots.`;
+                    }
+
+                    return (
+                      <div key={i} style={{ padding: '0.75rem 1rem', background: '#ffffff', borderRadius: '8px', border: '1px solid #fde68a', display: 'flex', flexDirection: 'column', gap: '0.375rem', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column' }}>
+                            <span style={{ fontWeight: 800, fontSize: '0.8125rem', color: '#1e293b' }}>
+                              Class {c.className}
+                            </span>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', fontWeight: 600 }}>
+                              {c.subjectName} {teacher ? `· ${teacher.name}` : ''}
+                            </span>
+                          </div>
+                          <span className="badge badge-warning" style={{ fontWeight: 800, fontSize: '0.68rem', padding: '0.2rem 0.5rem', whiteSpace: 'nowrap' }}>
+                            Shortfall: -{c.missing} ({c.scheduled}/{c.required})
+                          </span>
+                        </div>
+                        <div style={{ fontSize: '0.7rem', color: '#b45309', display: 'flex', alignItems: 'center', gap: '0.25rem', background: '#fef3c7', padding: '0.35rem 0.5rem', borderRadius: '4px' }}>
+                          <AlertCircle size={12} style={{ flexShrink: 0 }} />
+                          <span style={{ fontWeight: 600 }}>{tip}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="card shadow-sm animate-fade-in" style={{ marginBottom: '1.25rem', borderLeft: '4px solid var(--color-success)', background: '#ecfdf5' }}>
+              <div className="card-body" style={{ padding: '1rem 1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: 24, height: 24, borderRadius: '50%', background: '#d1fae5', flexShrink: 0 }}>
+                  <span style={{ color: 'var(--color-success)', fontWeight: 900, fontSize: '0.95rem' }}>✓</span>
+                </div>
+                <div>
+                  <div style={{ fontWeight: 800, fontSize: '0.875rem', color: '#065f46' }}>100% Conflict-Free & Fully Scheduled!</div>
+                  <div style={{ fontSize: '0.75rem', color: '#047857', marginTop: '1px' }}>All classes, subjects, and teachers have been successfully placed without any period shortfalls.</div>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ── Mode selector bar ── */}
           <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'white', padding: '0.75rem 1.25rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', marginBottom: '1.25rem', justifyContent: 'space-between' }}>
             <div style={{ display: 'flex', gap: '0.5rem' }}>
