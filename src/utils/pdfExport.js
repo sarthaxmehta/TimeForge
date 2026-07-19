@@ -99,7 +99,7 @@ export async function exportToPDF(elementId, opts = {}) {
   pdf.setTextColor(71, 85, 105); // slate-600
   pdf.setFontSize(8);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('Generated via TimeForge Timetable System', margin, pageH - 4);
+  pdf.text('TimeForge Timetable System  |  Developed by Sarthak Mehta', margin, pageH - 4);
 
   const footerRight = 'Official Schedule Document';
   const footerRightW = pdf.getTextWidth(footerRight);
@@ -193,7 +193,7 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
     pdf.setTextColor(71, 85, 105);
     pdf.setFontSize(8);
     pdf.setFont('helvetica', 'bold');
-    pdf.text(`Page ${i + 1} of ${classIds.length}   |   TimeForge Timetable System`, margin, pageH - 4);
+    pdf.text(`Page ${i + 1} of ${classIds.length}   |   TimeForge System (Developed by Sarthak Mehta)`, margin, pageH - 4);
 
     const footerRight = 'Official Schedule Document';
     const footerRightW = pdf.getTextWidth(footerRight);

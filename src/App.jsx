@@ -113,8 +113,9 @@ export default function App() {
           ))}
         </div>
 
-        <div className="sidebar-footer">
-          TimeForge v2.0 &copy; {new Date().getFullYear()}
+        <div className="sidebar-footer" style={{ lineHeight: '1.4' }}>
+          TimeForge v2.1 &copy; {new Date().getFullYear()}<br />
+          Developed by <strong>Sarthak Mehta</strong>
         </div>
       </aside>
 
