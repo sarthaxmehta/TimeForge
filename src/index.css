@@ -1249,3 +1249,83 @@ select.form-control {
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
+
+/* ══════════════════════════════════════
+   PDF CAPTURE MODE — HIGH-CONTRAST BOLD
+   ══════════════════════════════════════ */
+.pdf-capture-mode {
+  padding: 1.5rem !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-family: 'Helvetica Neue', Arial, sans-serif !important;
+}
+
+.pdf-capture-mode table.timetable-grid {
+  border-spacing: 5px !important;
+  width: 100% !important;
+}
+
+.pdf-capture-mode th {
+  font-size: 0.85rem !important;
+  font-weight: 900 !important;
+  color: #0f172a !important;
+  background: #e2e8f0 !important;
+  border: 2px solid #94a3b8 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  padding: 0.75rem 0.5rem !important;
+}
+
+.pdf-capture-mode .timetable-cell {
+  border: 2px solid rgba(0, 0, 0, 0.4) !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  padding: 0.625rem !important;
+}
+
+.pdf-capture-mode .timetable-cell.empty {
+  background: #ffffff !important;
+  border: 2px dashed #cbd5e1 !important;
+  color: #94a3b8 !important;
+}
+
+.pdf-capture-mode .cell-subject {
+  font-size: 0.95rem !important;
+  font-weight: 900 !important;
+  color: #000000 !important;
+  letter-spacing: -0.01em !important;
+  margin-bottom: 4px !important;
+}
+
+.pdf-capture-mode .cell-teacher {
+  font-size: 0.775rem !important;
+  font-weight: 800 !important;
+  color: #1e293b !important;
+  opacity: 0.95 !important;
+}
+
+.pdf-capture-mode .period-label-col {
+  background: #f1f5f9 !important;
+  border: 2px solid #cbd5e1 !important;
+}
+
+.pdf-capture-mode .period-name {
+  font-size: 0.85rem !important;
+  font-weight: 900 !important;
+  color: #0f172a !important;
+}
+
+.pdf-capture-mode .period-time-row {
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  color: #475569 !important;
+}
+
+.pdf-capture-mode .timetable-cell.break-cell,
+.pdf-capture-mode .timetable-cell.lunch-cell,
+.pdf-capture-mode .timetable-cell.assembly-cell {
+  border-width: 2px !important;
+  border-color: rgba(0, 0, 0, 0.4) !important;
+  font-weight: 900 !important;
+}
