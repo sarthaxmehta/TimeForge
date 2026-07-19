@@ -2,9 +2,61 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 /**
- * Export a timetable DOM element to a PDF file.
- * @param {string} elementId - ID of the DOM element to capture
- * @param {object} opts - settings/metadata fields
+ * Shared helper to capture a DOM element to canvas.
+ * If the element is currently hidden/invisible, it clones it and renders it offscreen
+ * at a standard desktop width of 1200px to ensure correct canvas sizing and avoid NaN layout calculations.
+ */
+async function captureElementToCanvas(element) {
+  // If the element is visible, capture it directly
+  if (element.offsetWidth > 0 && element.offsetHeight > 0) {
+    element.classList.add('pdf-capture-mode');
+    const canvas = await html2canvas(element, {
+      scale: 2.5,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      scrollX: 0,
+      scrollY: 0,
+      allowTaint: true,
+    });
+    element.classList.remove('pdf-capture-mode');
+    return canvas;
+  }
+
+  // If invisible/hidden, clone it and render offscreen
+  const clone = element.cloneNode(true);
+  clone.removeAttribute('id');
+  
+  clone.style.display = 'block';
+  clone.style.position = 'fixed';
+  clone.style.top = '0';
+  clone.style.left = '-9999px';
+  clone.style.width = '1200px'; 
+  clone.style.height = 'auto';
+  clone.style.background = '#ffffff';
+  clone.style.padding = '10px';
+  clone.style.boxSizing = 'border-box';
+  
+  document.body.appendChild(clone);
+  clone.classList.add('pdf-capture-mode');
+
+  // Wait slightly for DOM rendering/layout
+  await new Promise(r => setTimeout(r, 60));
+
+  const canvas = await html2canvas(clone, {
+    scale: 2.2,
+    useCORS: true,
+    backgroundColor: '#ffffff',
+    logging: false,
+  });
+
+  clone.classList.remove('pdf-capture-mode');
+  document.body.removeChild(clone);
+  return canvas;
+}
+
+/**
+ * Export a single timetable DOM element to a PDF file.
  */
 export async function exportToPDF(elementId, opts = {}) {
   const {
@@ -24,26 +76,9 @@ export async function exportToPDF(elementId, opts = {}) {
   const element = document.getElementById(elementId);
   if (!element) throw new Error(`Element #${elementId} not found`);
 
-  // Add capturing styling class for BOLD contrast print
-  element.classList.add('pdf-capture-mode');
-
-  const canvas = await html2canvas(element, {
-    scale: 3.0,
-    useCORS: true,
-    backgroundColor: '#ffffff',
-    logging: false,
-    scrollX: 0,
-    scrollY: 0,
-    allowTaint: true,
-  });
-
-  element.classList.remove('pdf-capture-mode');
-
+  const canvas = await captureElementToCanvas(element);
   const imgData = canvas.toDataURL('image/png');
-  const imgW = canvas.width;
-  const imgH = canvas.height;
 
-  // Always use landscape A4 for timetables — better readability
   const pdf = new jsPDF({
     orientation: 'landscape',
     unit: 'mm',
@@ -89,7 +124,6 @@ export async function exportToPDF(elementId, opts = {}) {
     currentY += 3.8;
   }
 
-  // Class/Timetable Title
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(13);
   pdf.setTextColor(79, 70, 229); // brand Indigo
@@ -97,7 +131,6 @@ export async function exportToPDF(elementId, opts = {}) {
   pdf.text(fullTitle, centerX, currentY + 0.5, { align: 'center' });
   currentY += 4.5;
 
-  // Term / Year / Principal info
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(9);
   pdf.setTextColor(71, 85, 105);
@@ -117,7 +150,6 @@ export async function exportToPDF(elementId, opts = {}) {
   pdf.text(dateStr, centerX, currentY, { align: 'center' });
   currentY += 4;
 
-  // Elegance Double Divider Line
   const dividerY = currentY + 0.25;
   pdf.setDrawColor(15, 23, 42); // slate-900
   pdf.setLineWidth(0.6);
@@ -127,7 +159,6 @@ export async function exportToPDF(elementId, opts = {}) {
   pdf.setLineWidth(0.4);
   pdf.line(margin, dividerY + 1.1, pageW - margin, dividerY + 1.1);
 
-  // Content start position
   const contentY = dividerY + 3.5;
   const availW = pageW - margin * 2;
   const maxH = pageH - contentY - margin - 8;
@@ -139,10 +170,9 @@ export async function exportToPDF(elementId, opts = {}) {
   const finalH = (canvas.height / 3.7795) * finalScale;
 
   const xOffset = margin + (availW - finalW) / 2;
-
   pdf.addImage(imgData, 'PNG', xOffset, contentY, finalW, finalH);
 
-  // ── Footer ──
+  // Footer
   pdf.setDrawColor(226, 232, 240);
   pdf.setLineWidth(0.5);
   pdf.line(margin, pageH - 8, pageW - margin, pageH - 8);
@@ -175,9 +205,8 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
     principalName = '',
   } = opts;
 
-  const isLandscape = true;
   const pdf = new jsPDF({
-    orientation: isLandscape ? 'landscape' : 'portrait',
+    orientation: 'landscape',
     unit: 'mm',
     format: 'a4',
   });
@@ -194,17 +223,7 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
 
     if (i > 0) pdf.addPage();
 
-    element.classList.add('pdf-capture-mode');
-
-    const canvas = await html2canvas(element, {
-      scale: 2.5,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-    });
-
-    element.classList.remove('pdf-capture-mode');
-
+    const canvas = await captureElementToCanvas(element);
     const imgData = canvas.toDataURL('image/png');
 
     // ── GRAND EUR CENTER-ORIENTED HEADER ──
@@ -241,7 +260,6 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
       currentY += 4;
     }
 
-    // Title
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(13);
     pdf.setTextColor(79, 70, 229); // brand Indigo
@@ -249,7 +267,6 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
     pdf.text(rightTitle, centerX, currentY + 0.5, { align: 'center' });
     currentY += 4.5;
 
-    // Term / Year / Principal info
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(9);
     pdf.setTextColor(71, 85, 105);
@@ -267,7 +284,6 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
     pdf.text(dateStr, centerX, currentY, { align: 'center' });
     currentY += 4.5;
 
-    // Divider Line
     const dividerY = currentY + 0.5;
     pdf.setDrawColor(15, 23, 42);
     pdf.setLineWidth(0.6);
@@ -277,7 +293,6 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
     pdf.setLineWidth(0.4);
     pdf.line(margin, dividerY + 1.2, pageW - margin, dividerY + 1.2);
 
-    // Image Positioning
     const contentY = dividerY + 4;
     const availW = pageW - margin * 2;
     const maxH = pageH - contentY - margin - 8;
@@ -286,7 +301,6 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
     const finalH = (canvas.height / 3.7795) * finalScale;
 
     const xOffset = margin + (availW - finalW) / 2;
-
     pdf.addImage(imgData, 'PNG', xOffset, contentY, finalW, finalH);
 
     // Footer
@@ -476,31 +490,6 @@ export async function exportMasterSchedulePDF(classes, teachers, subjects, setti
     });
   }
 
-  // ── TIMETABLES EXPORT (LANDSCAPE A4) ──
-  const originalStyles = [];
-  function forceShowElement(el) {
-    originalStyles.push({
-      el,
-      display: el.style.display,
-      position: el.style.position,
-      left: el.style.left,
-      visibility: el.style.visibility,
-    });
-    el.style.display = 'block';
-    el.style.position = 'absolute';
-    el.style.left = '-9999px';
-    el.style.visibility = 'visible';
-  }
-
-  function restoreStyles() {
-    originalStyles.forEach(s => {
-      s.el.style.display = s.display;
-      s.el.style.position = s.position;
-      s.el.style.left = s.left;
-      s.el.style.visibility = s.visibility;
-    });
-  }
-
   // Class Timetables
   for (let i = 0; i < classes.length; i++) {
     const cls = classes[i];
@@ -513,17 +502,7 @@ export async function exportMasterSchedulePDF(classes, teachers, subjects, setti
     const lpH = pdf.internal.pageSize.getHeight();
     const lMargin = 12;
 
-    forceShowElement(element);
-    element.classList.add('pdf-capture-mode');
-
-    const canvas = await html2canvas(element, {
-      scale: 2.2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-    });
-
-    element.classList.remove('pdf-capture-mode');
+    const canvas = await captureElementToCanvas(element);
     const imgData = canvas.toDataURL('image/png');
 
     pdf.setTextColor(15, 23, 42);
@@ -569,17 +548,7 @@ export async function exportMasterSchedulePDF(classes, teachers, subjects, setti
     const lpH = pdf.internal.pageSize.getHeight();
     const lMargin = 12;
 
-    forceShowElement(element);
-    element.classList.add('pdf-capture-mode');
-
-    const canvas = await html2canvas(element, {
-      scale: 2.2,
-      useCORS: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-    });
-
-    element.classList.remove('pdf-capture-mode');
+    const canvas = await captureElementToCanvas(element);
     const imgData = canvas.toDataURL('image/png');
 
     pdf.setTextColor(15, 23, 42);
@@ -612,8 +581,6 @@ export async function exportMasterSchedulePDF(classes, teachers, subjects, setti
     pdf.line(lMargin, lpH - 7, lpW - lMargin, lpH - 7);
     pdf.text(`Master schedule booklet  |  Teacher ${t.name}`, lMargin, lpH - 3);
   }
-
-  restoreStyles();
 
   const cleanName = institutionName.replace(/\s+/g, '_') || 'TimeForge';
   pdf.save(`${cleanName}_Master_Booklet.pdf`);
