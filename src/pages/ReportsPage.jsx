@@ -155,7 +155,16 @@ export default function ReportsPage() {
       if (!cls || !classTimetables[cls.id]) return false;
       let count = 0;
       Object.values(classTimetables[cls.id]).forEach((day) => {
-        Object.values(day).forEach((v) => { if (v === s.id) count++; });
+        Object.values(day).forEach((v) => {
+          if (v === s.id) {
+            count++;
+          } else if (v && typeof v === 'string' && v.startsWith('__group__:') && s.combinedGroupId) {
+            const groupId = v.split(':')[1];
+            if (s.combinedGroupId === groupId) {
+              count++;
+            }
+          }
+        });
       });
       return count < (s.requiredPeriods || 0);
     });
@@ -330,7 +339,16 @@ export default function ReportsPage() {
                     let scheduled = 0;
                     if (classTimetables[s.classId]) {
                       Object.values(classTimetables[s.classId]).forEach((day) => {
-                        Object.values(day).forEach((v) => { if (v === s.id) scheduled++; });
+                        Object.values(day).forEach((v) => {
+                          if (v === s.id) {
+                            scheduled++;
+                          } else if (v && typeof v === 'string' && v.startsWith('__group__:') && s.combinedGroupId) {
+                            const groupId = v.split(':')[1];
+                            if (s.combinedGroupId === groupId) {
+                              scheduled++;
+                            }
+                          }
+                        });
                       });
                     }
                     return (
