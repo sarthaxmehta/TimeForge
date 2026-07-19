@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import useStore, { SUBJECT_COLORS } from '../store/useStore';
+import { v4 as uuidv4 } from 'uuid';
 import {
   Plus, Trash2, Pencil, BookOpen, Hash, ChevronRight,
   Grid3x3, List, Copy, Layers, CheckSquare, Square,
@@ -221,6 +222,19 @@ export default function ClassesPage() {
   const [editGroupId, setEditGroupId] = useState(null);
   const [groupForm, setGroupForm] = useState({ name: '', requiredPeriods: 5 });
 
+  // Subject Type Selector & Combined Subject Creator states
+  const [showSubjectTypeModal, setShowSubjectTypeModal] = useState(false);
+  const [showCombinedSubjectModal, setShowCombinedSubjectModal] = useState(false);
+  const [combinedForm, setCombinedForm] = useState({
+    name: '',
+    requiredPeriods: 5,
+    selectedClassIds: [],
+    parallelRows: [
+      { name: '', teacherId: '' },
+      { name: '', teacherId: '' }
+    ]
+  });
+
   // ── Class CRUD ──────────────────────────────────────────
   const openAddClass = () => {
     setEditClassId(null);
@@ -310,6 +324,57 @@ export default function ClassesPage() {
     setEditGroupId(null);
   };
 
+  const handleCombinedSubmit = (e) => {
+    e.preventDefault();
+    if (!combinedForm.name.trim()) return;
+    if (combinedForm.selectedClassIds.length === 0) {
+      showToast('Select at least one class', 'warning');
+      return;
+    }
+    const emptyRow = combinedForm.parallelRows.find((r) => !r.name.trim());
+    if (emptyRow) {
+      showToast('Sub-subject name cannot be empty', 'warning');
+      return;
+    }
+
+    const groupId = uuidv4();
+
+    // 1. Add Combined Group
+    addCombinedGroup({
+      id: groupId,
+      name: combinedForm.name,
+      requiredPeriods: combinedForm.requiredPeriods,
+    });
+
+    // 2. Create and add subjects to each class
+    combinedForm.selectedClassIds.forEach((cId) => {
+      combinedForm.parallelRows.forEach((row, rIdx) => {
+        addSubject({
+          name: row.name,
+          code: row.name.replace(/\s+/g, '').toUpperCase().slice(0, 6),
+          classId: cId,
+          teacherId: row.teacherId,
+          requiredPeriods: combinedForm.requiredPeriods,
+          combinedGroupId: groupId,
+          color: SUBJECT_COLORS[rIdx % SUBJECT_COLORS.length],
+        });
+      });
+    });
+
+    showToast('Combined subjects created and linked!', 'success');
+    setShowCombinedSubjectModal(false);
+    // Reset form
+    setCombinedForm({
+      name: '',
+      requiredPeriods: 5,
+      selectedClassIds: [],
+      parallelRows: [
+        { name: '', teacherId: '' },
+        { name: '', teacherId: '' },
+      ],
+    });
+  };
+
   const handleCopySubjects = () => {
     if (!copyTargetId || !selectedClassId) return;
     copySubjectsToClass(selectedClassId, copyTargetId);
@@ -365,7 +430,11 @@ export default function ClassesPage() {
               <button className="btn btn-secondary" onClick={() => setShowCopyModal(true)} title="Copy subjects to another class">
                 <Copy size={16} /> Copy to Class
               </button>
-              <button className="btn btn-primary" onClick={() => { setSubjectForm({ ...EMPTY_SUBJ, color: SUBJECT_COLORS[classSubjects.length % SUBJECT_COLORS.length] }); setShowSubjectCatalogueModal(true); }}>
+              <button className="btn btn-primary" onClick={() => {
+                // Initialize selected class automatically
+                setCombinedForm(f => ({ ...f, selectedClassIds: selectedClassId ? [selectedClassId] : [] }));
+                setShowSubjectTypeModal(true);
+              }}>
                 <Plus size={16} /> Add Subject
               </button>
             </>
@@ -744,57 +813,7 @@ export default function ClassesPage() {
                           />
                         </div>
 
-                        {/* Combined Period Dropdown */}
-                        {s.teacherId && (
-                          <div className="form-group" style={{ flex: 2, minWidth: 150, marginBottom: 0 }}>
-                            <label className="form-label" style={{ fontSize: '0.7rem' }}>Combine Slot With</label>
-                            <select
-                              className="form-control"
-                              style={{ fontSize: '0.8rem', padding: '0.375rem 0.625rem' }}
-                              value={s.mergedWithSubjectId || ''}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                const previousId = s.mergedWithSubjectId;
 
-                                if (val === '') {
-                                  if (previousId) {
-                                    updateSubject(previousId, { mergedWithSubjectId: '' });
-                                  }
-                                  updateSubject(s.id, { mergedWithSubjectId: '' });
-                                  showToast('Combined period links removed.', 'info');
-                                } else {
-                                  if (previousId) {
-                                    updateSubject(previousId, { mergedWithSubjectId: '' });
-                                  }
-                                  // Link two subjects together and sync periods count
-                                  updateSubject(val, { mergedWithSubjectId: s.id, requiredPeriods: s.requiredPeriods });
-                                  updateSubject(s.id, { mergedWithSubjectId: val });
-                                  showToast('Period successfully combined with partner class!', 'success');
-                                }
-                              }}
-                            >
-                              <option value="">Independent Period</option>
-                              {subjects
-                                .filter(
-                                  (other) =>
-                                    other.classId !== s.classId &&
-                                    other.teacherId === s.teacherId &&
-                                    other.teacherId !== ''
-                                )
-                                .map((other) => {
-                                  const clsName = classes.find((c) => c.id === other.classId);
-                                  const label = clsName
-                                    ? `Class ${clsName.name}${clsName.section ? `-${clsName.section}` : ''} (${other.name})`
-                                    : `Class ID: ${other.classId} (${other.name})`;
-                                  return (
-                                    <option key={other.id} value={other.id}>
-                                      {label}
-                                    </option>
-                                  );
-                                })}
-                            </select>
-                          </div>
-                        )}
 
                         <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.125rem' }}>
                           <button
@@ -1207,7 +1226,7 @@ export default function ClassesPage() {
               onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))}
               required
             />
-            <span className="form-hint">E.g., \"9th PE / NSQF\" or \"11th Computer Science Electives\".</span>
+            <span className="form-hint">E.g., "9th PE / NSQF" or "11th Computer Science Electives".</span>
           </div>
           <div className="form-group">
             <label className="form-label required">Periods per Week</label>
@@ -1222,6 +1241,227 @@ export default function ClassesPage() {
             />
             <span className="form-hint">All subjects in this combined group will sync to this weekly period count.</span>
           </div>
+        </form>
+      </Modal>
+
+      {/* ── Subject Type Selector Modal ── */}
+      <Modal
+        isOpen={showSubjectTypeModal}
+        onClose={() => setShowSubjectTypeModal(false)}
+        title="Add Subject"
+        size="md"
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', padding: '0.5rem 0' }}>
+          <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+            Choose the type of subject you want to create for this class schedule:
+          </p>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '0.75rem' }}>
+            {/* Independent Subject Card */}
+            <div
+              onClick={() => {
+                setShowSubjectTypeModal(false);
+                setSubjectForm({ ...EMPTY_SUBJ, color: SUBJECT_COLORS[classSubjects.length % SUBJECT_COLORS.length] });
+                setShowSubjectCatalogueModal(true);
+              }}
+              style={{
+                border: '2px solid var(--color-border)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '1.25rem',
+                cursor: 'pointer',
+                transition: 'all var(--transition-fast)',
+                display: 'flex',
+                gap: '1rem',
+                alignItems: 'center'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.background = 'var(--color-primary-soft)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'transparent'; }}
+            >
+              <div style={{ background: 'var(--color-primary-soft)', padding: '0.5rem', borderRadius: '50%', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <BookOpen size={24} />
+              </div>
+              <div>
+                <h4 style={{ fontWeight: 800, fontSize: '0.95rem', margin: '0 0 0.15rem 0', color: 'var(--text-primary)' }}>Create Independent Subject</h4>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
+                  A standard subject (e.g. Mathematics, English) taught by a single teacher for this class only.
+                </p>
+              </div>
+            </div>
+
+            {/* Combined Subject Card */}
+            <div
+              onClick={() => {
+                setShowSubjectTypeModal(false);
+                setCombinedForm({
+                  name: '',
+                  requiredPeriods: 5,
+                  selectedClassIds: selectedClassId ? [selectedClassId] : [],
+                  parallelRows: [
+                    { name: 'PE', teacherId: '' },
+                    { name: 'NSQF', teacherId: '' }
+                  ]
+                });
+                setShowCombinedSubjectModal(true);
+              }}
+              style={{
+                border: '2px solid var(--color-border)',
+                borderRadius: 'var(--radius-lg)',
+                padding: '1.25rem',
+                cursor: 'pointer',
+                transition: 'all var(--transition-fast)',
+                display: 'flex',
+                gap: '1rem',
+                alignItems: 'center'
+              }}
+              onMouseEnter={(e) => { e.currentTarget.style.borderColor = 'var(--color-primary)'; e.currentTarget.style.background = 'var(--color-primary-soft)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.borderColor = 'var(--color-border)'; e.currentTarget.style.background = 'transparent'; }}
+            >
+              <div style={{ background: 'var(--color-primary-soft)', padding: '0.5rem', borderRadius: '50%', color: 'var(--color-primary)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Layers size={24} />
+              </div>
+              <div>
+                <h4 style={{ fontWeight: 800, fontSize: '0.95rem', margin: '0 0 0.15rem 0', color: 'var(--text-primary)' }}>Create Combined / Split Subject</h4>
+                <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)', margin: 0 }}>
+                  A period shared across multiple classes running in parallel with multiple teachers (e.g. PE &amp; NSQF split).
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </Modal>
+
+      {/* ── Combined Subject Creation Modal ── */}
+      <Modal
+        isOpen={showCombinedSubjectModal}
+        onClose={() => setShowCombinedSubjectModal(false)}
+        title="Create Combined / Split Subject"
+        size="lg"
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => setShowCombinedSubjectModal(false)}>Cancel</button>
+            <button className="btn btn-primary" form="combined-subject-form" type="submit">
+              Create combined period
+            </button>
+          </>
+        }
+      >
+        <form id="combined-subject-form" onSubmit={handleCombinedSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 1rem' }}>
+            <div className="form-group">
+              <label className="form-label required">Combined Subject Name</label>
+              <input
+                className="form-control"
+                placeholder="e.g. PE / NSQF"
+                value={combinedForm.name}
+                onChange={(e) => setCombinedForm(f => ({ ...f, name: e.target.value }))}
+                required
+              />
+              <span className="form-hint">E.g., "PE / NSQF" or "Vocational / Sports".</span>
+            </div>
+            
+            <div className="form-group">
+              <label className="form-label required">Periods per Week</label>
+              <input
+                className="form-control"
+                type="number"
+                min="1"
+                max="30"
+                value={combinedForm.requiredPeriods}
+                onChange={(e) => setCombinedForm(f => ({ ...f, requiredPeriods: parseInt(e.target.value) || 1 }))}
+                required
+              />
+              <span className="form-hint">All sub-subjects will sync to this weekly count.</span>
+            </div>
+          </div>
+
+          {/* Classes Selection Checklist */}
+          <div className="form-group">
+            <label className="form-label required">Select Classes to Combine</label>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))', gap: '0.5rem', maxHeight: 110, overflowY: 'auto', padding: '0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)' }}>
+              {classes.map((c) => {
+                const isChecked = combinedForm.selectedClassIds.includes(c.id);
+                return (
+                  <label key={c.id} style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem', cursor: 'pointer', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={isChecked}
+                      onChange={() => {
+                        const newIds = isChecked
+                          ? combinedForm.selectedClassIds.filter(id => id !== c.id)
+                          : [...combinedForm.selectedClassIds, c.id];
+                        setCombinedForm(f => ({ ...f, selectedClassIds: newIds }));
+                      }}
+                    />
+                    {c.name}{c.section ? `-${c.section}` : ''}
+                  </label>
+                );
+              })}
+            </div>
+            <span className="form-hint">Selected classes will run this group in parallel (at the exact same period).</span>
+          </div>
+
+          {/* Parallel sub-subjects rows */}
+          <div className="form-group" style={{ margin: 0 }}>
+            <label className="form-label required" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>Sub-Subjects &amp; Teachers (Split/Parallel running)</span>
+              <button
+                type="button"
+                className="btn btn-outline btn-xs"
+                onClick={() => setCombinedForm(f => ({ ...f, parallelRows: [...f.parallelRows, { name: '', teacherId: '' }] }))}
+              >
+                + Add Parallel Subject
+              </button>
+            </label>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+              {combinedForm.parallelRows.map((row, idx) => (
+                <div key={idx} style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                  <input
+                    className="form-control"
+                    placeholder={`e.g. PE or NSQF`}
+                    style={{ flex: 2, fontSize: '0.8rem', padding: '0.375rem 0.625rem' }}
+                    value={row.name}
+                    onChange={(e) => {
+                      const newRows = [...combinedForm.parallelRows];
+                      newRows[idx].name = e.target.value;
+                      setCombinedForm(f => ({ ...f, parallelRows: newRows }));
+                    }}
+                    required
+                  />
+                  <select
+                    className="form-control"
+                    style={{ flex: 2, fontSize: '0.8rem', padding: '0.375rem 0.625rem' }}
+                    value={row.teacherId}
+                    onChange={(e) => {
+                      const newRows = [...combinedForm.parallelRows];
+                      newRows[idx].teacherId = e.target.value;
+                      setCombinedForm(f => ({ ...f, parallelRows: newRows }));
+                    }}
+                  >
+                    <option value="">Select Teacher…</option>
+                    {teachers.map((t) => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                  {combinedForm.parallelRows.length > 1 && (
+                    <button
+                      type="button"
+                      className="btn btn-danger btn-icon btn-sm"
+                      onClick={() => {
+                        const newRows = combinedForm.parallelRows.filter((_, i) => i !== idx);
+                        setCombinedForm(f => ({ ...f, parallelRows: newRows }));
+                      }}
+                      style={{ padding: '0.375rem' }}
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+            <span className="form-hint">Each parallel sub-subject will have its own teacher. If the group has PE (Teacher A) and NSQF (Teacher B), they will run together simultaneously.</span>
+          </div>
+
         </form>
       </Modal>
     </div>
