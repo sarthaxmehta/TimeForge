@@ -819,6 +819,21 @@ select.form-control {
   z-index: 2;
 }
 
+/* Combined / parallel period cell — override default flex column */
+.timetable-cell.combined-period-cell {
+  flex-direction: row;
+  padding: 0;
+  overflow: hidden;
+  align-items: stretch;
+}
+
+.timetable-cell.combined-period-cell:hover {
+  transform: translateY(-2px) scale(1.015);
+  box-shadow: 0 10px 28px rgba(79,70,229,0.22);
+  border-color: #818cf8;
+}
+
+
 .timetable-cell.empty {
   background: #f8fafc;
   border: 1.5px dashed #cbd5e1;

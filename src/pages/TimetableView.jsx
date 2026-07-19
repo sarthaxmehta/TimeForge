@@ -138,44 +138,86 @@ function ClassTimetableGrid({ classId, timetable, subjects, teachers, settings, 
                       (s) => s.combinedGroupId === groupId && s.classId === classId
                     );
                     return (
-                      <td key={di} style={{ padding: '0.25rem' }}>
+                      <td key={di} style={{ padding: '2px' }}>
                         <div
-                          className="parallel-group-wrapper"
+                          className="timetable-cell filled combined-period-cell"
                           style={{
+                            padding: 0,
+                            overflow: 'hidden',
+                            minHeight: 68,
+                            height: 68,
                             display: 'flex',
-                            flexDirection: 'column',
-                            gap: '4px',
-                            width: '100%',
-                            minHeight: '64px',
-                            justifyContent: 'center'
+                            flexDirection: 'row',
+                            gap: 0,
+                            border: '1.5px solid #c7d2fe',
+                            background: 'linear-gradient(135deg, #eef2ff 0%, #f0f4ff 100%)',
+                            borderRadius: 10,
+                            position: 'relative',
                           }}
                         >
-                          {groupSubs.map((sub) => {
+                          {/* combined badge */}
+                          <div style={{
+                            position: 'absolute',
+                            top: 4,
+                            left: '50%',
+                            transform: 'translateX(-50%)',
+                            background: '#4f46e5',
+                            color: '#fff',
+                            fontSize: '0.47rem',
+                            fontWeight: 900,
+                            letterSpacing: '0.08em',
+                            padding: '1px 5px',
+                            borderRadius: 99,
+                            textTransform: 'uppercase',
+                            zIndex: 2,
+                            whiteSpace: 'nowrap',
+                            boxShadow: '0 1px 4px rgba(79,70,229,0.25)',
+                          }}>⚡ Parallel Period</div>
+
+                          {groupSubs.map((sub, idx) => {
                             const subTeacher = teachers.find((t) => t.id === sub.teacherId);
                             const subColors = applyTheme(sub.color || '#6366f1', timetableTheme);
+                            const isLast = idx === groupSubs.length - 1;
                             return (
                               <div
                                 key={sub.id}
-                                className="timetable-cell filled parallel-group-item"
                                 style={{
-                                  background: subColors.bg,
-                                  border: `1.5px solid ${subColors.border}`,
-                                  borderRadius: 'var(--radius-md)',
-                                  padding: '6px 8px',
-                                  textAlign: 'center',
+                                  flex: 1,
                                   display: 'flex',
                                   flexDirection: 'column',
+                                  alignItems: 'center',
                                   justifyContent: 'center',
-                                  minWidth: '0',
-                                  boxShadow: 'var(--shadow-sm)',
-                                  transition: 'all var(--transition-fast)'
+                                  paddingTop: '14px',
+                                  paddingBottom: '4px',
+                                  paddingLeft: '4px',
+                                  paddingRight: '4px',
+                                  background: subColors.bg,
+                                  borderRight: isLast ? 'none' : `1.5px solid ${subColors.border}`,
+                                  gap: '2px',
+                                  transition: 'all 0.15s ease',
                                 }}
                               >
-                                <div className="cell-subject" style={{ fontWeight: 800, fontSize: '0.75rem', color: subColors.text, lineHeight: '1.2' }}>
+                                <div style={{
+                                  fontWeight: 900,
+                                  fontSize: '0.75rem',
+                                  color: subColors.text,
+                                  lineHeight: 1.2,
+                                  textAlign: 'center',
+                                }}>
                                   {sub.name}
                                 </div>
                                 {subTeacher && (
-                                  <div className="cell-teacher" style={{ fontSize: '0.65rem', color: subColors.text, opacity: 0.85, fontWeight: 600, marginTop: '1px' }}>
+                                  <div style={{
+                                    fontSize: '0.62rem',
+                                    color: subColors.text,
+                                    opacity: 0.8,
+                                    fontWeight: 700,
+                                    textAlign: 'center',
+                                    whiteSpace: 'nowrap',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    maxWidth: '100%',
+                                  }}>
                                     {subTeacher.name}
                                   </div>
                                 )}
