@@ -112,13 +112,6 @@ export function generateTimetable(classes, subjects, teachers, settings) {
               busyTeachers.add(cls.classTeacherId);
               teacherCount[cls.classTeacherId]++;
             }
-          } else {
-            // 2. Otherwise, assign a virtual "Homeroom" session with the class teacher (if they aren't busy)
-            if (!busyTeachers.has(cls.classTeacherId)) {
-              classTimetables[cls.id][di][p] = `__homeroom__:${cls.classTeacherId}`;
-              teacherTimetables[cls.classTeacherId][di][p] = { subjectId: `__homeroom__:${cls.classTeacherId}`, classId: cls.id };
-              busyTeachers.add(cls.classTeacherId);
-            }
           }
         }
       }
