@@ -622,7 +622,24 @@ export default function ClassesPage() {
                           <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)' }}>
                             {s.name}
                           </div>
-                          {s.code && <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{s.code}</div>}
+                          <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', alignItems: 'center', marginTop: 2 }}>
+                            {s.code && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{s.code}</span>}
+                            {s.mergedWithSubjectId && (() => {
+                              const partner = subjects.find(o => o.id === s.mergedWithSubjectId);
+                              const partnerCls = partner ? classes.find(c => c.id === partner.classId) : null;
+                              if (!partnerCls) return null;
+                              return (
+                                <span style={{
+                                  fontSize: '0.68rem', fontWeight: 700,
+                                  background: 'var(--color-primary-soft)', color: 'var(--color-primary)',
+                                  padding: '0.05rem 0.35rem', borderRadius: 'var(--radius-full)',
+                                  display: 'inline-flex', alignItems: 'center', gap: '0.2rem'
+                                }}>
+                                  🔗 Combined: {partnerCls.name}{partnerCls.section ? `-${partnerCls.section}` : ''}
+                                </span>
+                              );
+                            })()}
+                          </div>
                         </div>
                         {s.isElective && (
                           <span style={{ fontSize: '0.65rem', fontWeight: 700, padding: '0.1rem 0.4rem', background: 'var(--color-warning-bg)', color: 'var(--color-warning)', borderRadius: 'var(--radius-full)', border: '1px solid #fcd34d' }}>
@@ -633,13 +650,22 @@ export default function ClassesPage() {
 
                       {/* Config row */}
                       <div style={{ padding: '0.625rem 1rem', background: 'var(--color-surface-2)', display: 'flex', gap: '0.75rem', alignItems: 'flex-end', flexWrap: 'wrap', borderTop: '1px solid var(--color-border)' }}>
-                        <div className="form-group" style={{ flex: 2, minWidth: 130, marginBottom: 0 }}>
+                        <div className="form-group" style={{ flex: 2, minWidth: 120, marginBottom: 0 }}>
                           <label className="form-label" style={{ fontSize: '0.7rem' }}>Teacher</label>
                           <select
                             className="form-control"
                             style={{ fontSize: '0.8rem', padding: '0.375rem 0.625rem' }}
                             value={s.teacherId || ''}
-                            onChange={(e) => updateSubject(s.id, { teacherId: e.target.value })}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              // If removing teacher, also break any merged links
+                              if (!val && s.mergedWithSubjectId) {
+                                updateSubject(s.mergedWithSubjectId, { mergedWithSubjectId: '' });
+                                updateSubject(s.id, { teacherId: '', mergedWithSubjectId: '' });
+                              } else {
+                                updateSubject(s.id, { teacherId: val });
+                              }
+                            }}
                           >
                             <option value="">No teacher assigned</option>
                             {teachers.map((t) => (
@@ -647,20 +673,85 @@ export default function ClassesPage() {
                             ))}
                           </select>
                         </div>
-                        <div className="form-group" style={{ width: 80, marginBottom: 0 }}>
+                        <div className="form-group" style={{ width: 68, marginBottom: 0 }}>
                           <label className="form-label" style={{ fontSize: '0.7rem' }}>Periods/Wk</label>
                           <input
                             className="form-control"
                             type="number" min="1" max="30"
                             style={{ fontSize: '0.8rem', padding: '0.375rem 0.625rem' }}
                             value={s.requiredPeriods}
-                            onChange={(e) => updateSubject(s.id, { requiredPeriods: parseInt(e.target.value) || 1 })}
+                            onChange={(e) => {
+                              const val = parseInt(e.target.value) || 1;
+                              updateSubject(s.id, { requiredPeriods: val });
+                              // Sync merged partner periods
+                              if (s.mergedWithSubjectId) {
+                                updateSubject(s.mergedWithSubjectId, { requiredPeriods: val });
+                              }
+                            }}
                           />
                         </div>
+
+                        {/* Combined Period Dropdown */}
+                        {s.teacherId && (
+                          <div className="form-group" style={{ flex: 2, minWidth: 150, marginBottom: 0 }}>
+                            <label className="form-label" style={{ fontSize: '0.7rem' }}>Combine Slot With</label>
+                            <select
+                              className="form-control"
+                              style={{ fontSize: '0.8rem', padding: '0.375rem 0.625rem' }}
+                              value={s.mergedWithSubjectId || ''}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                const previousId = s.mergedWithSubjectId;
+
+                                if (val === '') {
+                                  if (previousId) {
+                                    updateSubject(previousId, { mergedWithSubjectId: '' });
+                                  }
+                                  updateSubject(s.id, { mergedWithSubjectId: '' });
+                                  showToast('Combined period links removed.', 'info');
+                                } else {
+                                  if (previousId) {
+                                    updateSubject(previousId, { mergedWithSubjectId: '' });
+                                  }
+                                  // Link two subjects together and sync periods count
+                                  updateSubject(val, { mergedWithSubjectId: s.id, requiredPeriods: s.requiredPeriods });
+                                  updateSubject(s.id, { mergedWithSubjectId: val });
+                                  showToast('Period successfully combined with partner class!', 'success');
+                                }
+                              }}
+                            >
+                              <option value="">Independent Period</option>
+                              {subjects
+                                .filter(
+                                  (other) =>
+                                    other.classId !== s.classId &&
+                                    other.teacherId === s.teacherId &&
+                                    other.teacherId !== ''
+                                )
+                                .map((other) => {
+                                  const clsName = classes.find((c) => c.id === other.classId);
+                                  const label = clsName
+                                    ? `Class ${clsName.name}${clsName.section ? `-${clsName.section}` : ''} (${other.name})`
+                                    : `Class ID: ${other.classId} (${other.name})`;
+                                  return (
+                                    <option key={other.id} value={other.id}>
+                                      {label}
+                                    </option>
+                                  );
+                                })}
+                            </select>
+                          </div>
+                        )}
+
                         <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.125rem' }}>
                           <button
                             className="btn btn-danger btn-icon btn-sm"
-                            onClick={() => removeSubject(s.id)}
+                            onClick={() => {
+                              if (s.mergedWithSubjectId) {
+                                updateSubject(s.mergedWithSubjectId, { mergedWithSubjectId: '' });
+                              }
+                              removeSubject(s.id);
+                            }}
                             title="Remove subject"
                           >
                             <Trash2 size={13} />

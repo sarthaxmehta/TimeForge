@@ -222,6 +222,16 @@ function ClassTimetableGrid({ classId, timetable, subjects, teachers, settings, 
                             {sub.name}
                             {sub.code && <span style={{ fontWeight: 500, opacity: 0.7, fontSize: '0.65rem', marginLeft: 3 }}>({sub.code})</span>}
                           </div>
+                          {sub.mergedWithSubjectId && (() => {
+                            const partner = subjects.find(o => o.id === sub.mergedWithSubjectId);
+                            const partnerCls = partner ? classes.find(c => c.id === partner.classId) : null;
+                            if (!partnerCls) return null;
+                            return (
+                              <div style={{ fontSize: '0.65rem', opacity: 0.85, fontWeight: 700, marginTop: '0.05rem', color: colors.text, display: 'flex', alignItems: 'center', gap: '0.15rem' }}>
+                                <span>🔗 {partnerCls.name}{partnerCls.section ? `-${partnerCls.section}` : ''}</span>
+                              </div>
+                            );
+                          })()}
                           {showTeacherInCell && teacher && (
                             <div className="cell-teacher" style={{ color: colors.text, textDecoration: isAbsentWithoutSub ? 'line-through' : 'none' }}>
                               {isSubstituted ? `Cover: ${teacher.name}` : teacher.name}
@@ -361,17 +371,24 @@ function TeacherTimetableGrid({ teacherId, teacherTimetable, subjects, classes, 
 
                   return (
                     <td key={di}>
-                      {sub ? (
-                        <div className="timetable-cell filled" style={{ background: colors.bg, border: `1.5px solid ${colors.border}` }}>
-                          <div className="cell-subject" style={{ color: colors.text }}>{sub.name}</div>
-                          {cls && <div className="cell-teacher" style={{ color: colors.text }}>
-                            {cls.name}{cls.section ? ` – ${cls.section}` : ''}
-                          </div>}
-                          {isSubstituteAssignedHere && (
-                            <div style={{ fontSize: '0.65rem', color: '#059669', fontWeight: 800, marginTop: 2 }}>🔄 COVERAGE ASSIGNED</div>
-                          )}
-                        </div>
-                      ) : isNormalSubstitutedAway ? (
+                      {sub ? (() => {
+                        const partnerSub = sub.mergedWithSubjectId ? subjects.find(o => o.id === sub.mergedWithSubjectId) : null;
+                        const partnerCls = partnerSub ? classes.find(c => c.id === partnerSub.classId) : null;
+                        return (
+                          <div className="timetable-cell filled" style={{ background: colors.bg, border: `1.5px solid ${colors.border}` }}>
+                            <div className="cell-subject" style={{ color: colors.text }}>{sub.name}</div>
+                            {cls && (
+                              <div className="cell-teacher" style={{ color: colors.text }}>
+                                {cls.name}{cls.section ? `-${cls.section}` : ''}
+                                {partnerCls && ` + ${partnerCls.name}${partnerCls.section ? `-${partnerCls.section}` : ''}`}
+                              </div>
+                            )}
+                            {isSubstituteAssignedHere && (
+                              <div style={{ fontSize: '0.65rem', color: '#059669', fontWeight: 800, marginTop: 2 }}>🔄 COVERAGE ASSIGNED</div>
+                            )}
+                          </div>
+                        );
+                      })() : isNormalSubstitutedAway ? (
                         <div className="timetable-cell empty" style={{ background: '#fef2f2', border: '1px dashed #fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 700 }}>
                           ABSENT (COVERED)
                         </div>

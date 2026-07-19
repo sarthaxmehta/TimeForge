@@ -150,12 +150,36 @@ export function generateTimetable(classes, subjects, teachers, settings) {
           const maxP = teacher ? teacher.maxPeriods : Infinity;
 
           if (!busyTeachers.has(subj.teacherId) && teacherCount[subj.teacherId] < maxP) {
-            classTimetables[cls.id][di][p]   = subj.id;
-            teacherTimetables[subj.teacherId][di][p] = { subjectId: subj.id, classId: cls.id };
-            remaining[subj.id]--;
-            busyTeachers.add(subj.teacherId);
-            teacherCount[subj.teacherId]++;
-            break;
+            // Check if this is a merged/combined subject
+            if (subj.mergedWithSubjectId) {
+              const partnerSub = subjects.find((s) => s.id === subj.mergedWithSubjectId);
+              if (partnerSub && remaining[partnerSub.id] > 0) {
+                const partnerClassId = partnerSub.classId;
+                // Ensure partner class has no class scheduled at this period/day
+                if (classTimetables[partnerClassId][di][p] === null) {
+                  classTimetables[cls.id][di][p] = subj.id;
+                  classTimetables[partnerClassId][di][p] = partnerSub.id;
+                  teacherTimetables[subj.teacherId][di][p] = { 
+                    subjectId: subj.id, 
+                    classId: cls.id, 
+                    mergedWithClassId: partnerClassId 
+                  };
+                  remaining[subj.id]--;
+                  remaining[partnerSub.id]--;
+                  busyTeachers.add(subj.teacherId);
+                  teacherCount[subj.teacherId]++;
+                  break;
+                }
+              }
+            } else {
+              // Normal scheduling
+              classTimetables[cls.id][di][p]   = subj.id;
+              teacherTimetables[subj.teacherId][di][p] = { subjectId: subj.id, classId: cls.id };
+              remaining[subj.id]--;
+              busyTeachers.add(subj.teacherId);
+              teacherCount[subj.teacherId]++;
+              break;
+            }
           }
         }
       }
