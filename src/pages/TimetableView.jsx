@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import useStore from '../store/useStore';
-import { generateTimetable, validateTimetable, DAY_NAMES, formatPeriodTime } from '../utils/generator';
+import { generateTimetable, validateTimetable, getSchedulableIndexes, DAY_NAMES, formatPeriodTime } from '../utils/generator';
 import { exportToPDF, exportAllTimetablesPDF } from '../utils/pdfExport';
 import { Play, Download, Printer, Users, BookOpen, FileDown, RefreshCw, Coffee, Zap, Calendar as CalendarIcon, ClipboardList, AlertTriangle, AlertCircle } from 'lucide-react';
 import { showToast } from '../components/Toast';
