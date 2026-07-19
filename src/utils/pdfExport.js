@@ -52,28 +52,28 @@ export async function exportToPDF(elementId, opts = {}) {
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
   const margin = 12;
+  const centerX = pageW / 2;
 
-  // ── GRAND EUR NO-COLOR HEADER ──
-  // Left Side: Institution Name and details
-  pdf.setTextColor(15, 23, 42); // slate-900 (High contrast dark grey/black)
+  // ── GRAND EUR CENTER-ORIENTED HEADER ──
+  pdf.setTextColor(15, 23, 42); // slate-900
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(16);
-  pdf.text((institutionName || 'TimeForge Academy').toUpperCase(), margin, 11);
+  pdf.setFontSize(16.5);
+  pdf.text((institutionName || 'TimeForge Academy').toUpperCase(), centerX, 11, { align: 'center' });
 
-  let currentY = 15;
+  let currentY = 15.5;
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(8.5);
   pdf.setTextColor(71, 85, 105); // slate-600
 
   if (affiliation) {
     pdf.setFont('helvetica', 'bold');
-    pdf.text(`Affiliation: ${affiliation}`, margin, currentY);
+    pdf.text(`Affiliation: ${affiliation}`, centerX, currentY, { align: 'center' });
     pdf.setFont('helvetica', 'normal');
     currentY += 4;
   }
 
   if (address) {
-    pdf.text(address, margin, currentY);
+    pdf.text(address, centerX, currentY, { align: 'center' });
     currentY += 4;
   }
 
@@ -84,51 +84,48 @@ export async function exportToPDF(elementId, opts = {}) {
   ].filter(Boolean).join('   |   ');
 
   if (contactInfo) {
-    pdf.text(contactInfo, margin, currentY);
+    pdf.text(contactInfo, centerX, currentY, { align: 'center' });
+    currentY += 4;
   }
 
-  // Right Side: Timetable info and signature
-  pdf.setTextColor(15, 23, 42); // slate-900
+  // Class/Timetable Title
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(13);
-  const rightTitle = title || 'Timetable';
-  const rightTitleW = pdf.getTextWidth(rightTitle);
-  pdf.text(rightTitle, pageW - margin - rightTitleW, 11);
+  pdf.setTextColor(79, 70, 229); // brand Indigo
+  const fullTitle = `${title || 'Timetable'}`;
+  pdf.text(fullTitle, centerX, currentY + 0.5, { align: 'center' });
+  currentY += 4.5;
 
-  pdf.setFontSize(9.5);
+  // Term / Year / Principal info
   pdf.setFont('helvetica', 'bold');
-  pdf.setTextColor(79, 70, 229); // Brand primary accent (Indigo)
-  const termDetails = [academicYear, semester].filter(Boolean).join('   |   ');
-  const termDetailsW = pdf.getTextWidth(termDetails);
-  pdf.text(termDetails, pageW - margin - termDetailsW, 15.5);
-
-  pdf.setFont('helvetica', 'normal');
-  pdf.setFontSize(8.5);
-  pdf.setTextColor(71, 85, 105); // slate-600
-
-  let rightY = 19.5;
-  if (principalName) {
-    const principalStr = `Principal: ${principalName}`;
-    const principalW = pdf.getTextWidth(principalStr);
-    pdf.text(principalStr, pageW - margin - principalW, rightY);
-    rightY += 4;
-  }
+  pdf.setFontSize(9);
+  pdf.setTextColor(71, 85, 105);
+  const termDetails = [
+    academicYear && `Year: ${academicYear}`,
+    semester && `Semester: ${semester}`,
+    principalName && `Principal: ${principalName}`
+  ].filter(Boolean).join('   |   ');
+  pdf.text(termDetails, centerX, currentY, { align: 'center' });
+  currentY += 4;
 
   const dateStr = `Exported: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
-  const dateW = pdf.getTextWidth(dateStr);
-  pdf.text(dateStr, pageW - margin - dateW, rightY);
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8);
+  pdf.text(dateStr, centerX, currentY, { align: 'center' });
+  currentY += 4.5;
 
-  // ── Elegance Double-Line Separator ──
-  pdf.setDrawColor(15, 23, 42); // slate-900 (Thicker line)
+  // Elegance Double Divider Line
+  const dividerY = currentY + 0.5;
+  pdf.setDrawColor(15, 23, 42); // slate-900
   pdf.setLineWidth(0.6);
-  pdf.line(margin, 28, pageW - margin, 28);
+  pdf.line(margin, dividerY, pageW - margin, dividerY);
 
-  pdf.setDrawColor(79, 70, 229); // Brand primary (Thinner accent line)
+  pdf.setDrawColor(79, 70, 229); // brand Accent
   pdf.setLineWidth(0.4);
-  pdf.line(margin, 29.2, pageW - margin, 29.2);
+  pdf.line(margin, dividerY + 1.2, pageW - margin, dividerY + 1.2);
 
-  // ── Image Positioning ──
-  const contentY = 32;
+  // Content start position
+  const contentY = dividerY + 4;
   const availW = pageW - margin * 2;
   const maxH = pageH - contentY - margin - 8;
 
@@ -182,6 +179,7 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
   const margin = 12;
+  const centerX = pageW / 2;
 
   for (let i = 0; i < classIds.length; i++) {
     const { classId, className } = classIds[i];
@@ -204,26 +202,26 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
 
     const imgData = canvas.toDataURL('image/png');
 
-    // ── GRAND EUR NO-COLOR HEADER ──
+    // ── GRAND EUR CENTER-ORIENTED HEADER ──
     pdf.setTextColor(15, 23, 42); // slate-900
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(16);
-    pdf.text((institutionName || 'TimeForge Academy').toUpperCase(), margin, 11);
+    pdf.setFontSize(16.5);
+    pdf.text((institutionName || 'TimeForge Academy').toUpperCase(), centerX, 11, { align: 'center' });
 
-    let currentY = 15;
+    let currentY = 15.5;
     pdf.setFont('helvetica', 'normal');
     pdf.setFontSize(8.5);
-    pdf.setTextColor(71, 85, 105);
+    pdf.setTextColor(71, 85, 105); // slate-600
 
     if (affiliation) {
       pdf.setFont('helvetica', 'bold');
-      pdf.text(`Affiliation: ${affiliation}`, margin, currentY);
+      pdf.text(`Affiliation: ${affiliation}`, centerX, currentY, { align: 'center' });
       pdf.setFont('helvetica', 'normal');
       currentY += 4;
     }
 
     if (address) {
-      pdf.text(address, margin, currentY);
+      pdf.text(address, centerX, currentY, { align: 'center' });
       currentY += 4;
     }
 
@@ -234,51 +232,48 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
     ].filter(Boolean).join('   |   ');
 
     if (contactInfo) {
-      pdf.text(contactInfo, margin, currentY);
+      pdf.text(contactInfo, centerX, currentY, { align: 'center' });
+      currentY += 4;
     }
 
-    // Right Side: Class specific info
-    pdf.setTextColor(15, 23, 42);
+    // Title
     pdf.setFont('helvetica', 'bold');
     pdf.setFontSize(13);
+    pdf.setTextColor(79, 70, 229); // brand Indigo
     const rightTitle = `Class ${className} Timetable`;
-    const rightTitleW = pdf.getTextWidth(rightTitle);
-    pdf.text(rightTitle, pageW - margin - rightTitleW, 11);
+    pdf.text(rightTitle, centerX, currentY + 0.5, { align: 'center' });
+    currentY += 4.5;
 
-    pdf.setFontSize(9.5);
+    // Term / Year / Principal info
     pdf.setFont('helvetica', 'bold');
-    pdf.setTextColor(79, 70, 229);
-    const termDetails = [academicYear, semester].filter(Boolean).join('   |   ');
-    const termDetailsW = pdf.getTextWidth(termDetails);
-    pdf.text(termDetails, pageW - margin - termDetailsW, 15.5);
-
-    pdf.setFont('helvetica', 'normal');
-    pdf.setFontSize(8.5);
+    pdf.setFontSize(9);
     pdf.setTextColor(71, 85, 105);
-
-    let rightY = 19.5;
-    if (principalName) {
-      const principalStr = `Principal: ${principalName}`;
-      const principalW = pdf.getTextWidth(principalStr);
-      pdf.text(principalStr, pageW - margin - principalW, rightY);
-      rightY += 4;
-    }
+    const termDetails = [
+      academicYear && `Year: ${academicYear}`,
+      semester && `Semester: ${semester}`,
+      principalName && `Principal: ${principalName}`
+    ].filter(Boolean).join('   |   ');
+    pdf.text(termDetails, centerX, currentY, { align: 'center' });
+    currentY += 4;
 
     const dateStr = `Exported: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
-    const dateW = pdf.getTextWidth(dateStr);
-    pdf.text(dateStr, pageW - margin - dateW, rightY);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8);
+    pdf.text(dateStr, centerX, currentY, { align: 'center' });
+    currentY += 4.5;
 
     // Divider Line
+    const dividerY = currentY + 0.5;
     pdf.setDrawColor(15, 23, 42);
     pdf.setLineWidth(0.6);
-    pdf.line(margin, 28, pageW - margin, 28);
+    pdf.line(margin, dividerY, pageW - margin, dividerY);
 
     pdf.setDrawColor(79, 70, 229);
     pdf.setLineWidth(0.4);
-    pdf.line(margin, 29.2, pageW - margin, 29.2);
+    pdf.line(margin, dividerY + 1.2, pageW - margin, dividerY + 1.2);
 
-    // ── Image Scaling & Position ──
-    const contentY = 32;
+    // Image Positioning
+    const contentY = dividerY + 4;
     const availW = pageW - margin * 2;
     const maxH = pageH - contentY - margin - 8;
     const finalScale = Math.min(availW / (canvas.width / 3.7795), maxH / (canvas.height / 3.7795));
