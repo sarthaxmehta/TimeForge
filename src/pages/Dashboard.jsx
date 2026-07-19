@@ -12,7 +12,7 @@ export default function Dashboard({ onNavigate }) {
 
   const classTimetables = timetables.classTimetables || {};
   const timetableCount  = Object.keys(classTimetables).length;
-  const totalPeriods    = subjects.reduce((sum, s) => sum + (s.requiredPeriods || 0), 0);
+  const totalPeriods    = subjects.reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
   const missingTeachers = subjects.filter((s) => !s.teacherId).length;
   const schedulablePeriods = (settings.periods || []).filter((p) => ['class'].includes(p.type)).length;
   const completionPct = (() => {

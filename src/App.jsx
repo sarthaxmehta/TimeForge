@@ -42,7 +42,7 @@ export default function App() {
 
   // Notification dots
   const hasIssues = {
-    reports: teachers.some((t) => subjects.filter((s) => s.teacherId === t.id).reduce((sum, s) => sum + (s.requiredPeriods || 0), 0) > t.maxPeriods) ||
+    reports: teachers.some((t) => subjects.filter((s) => s.teacherId === t.id).reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0) > t.maxPeriods) ||
              subjects.some((s) => !s.teacherId),
   };
 

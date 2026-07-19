@@ -65,7 +65,7 @@ export default function ReportsPage() {
   const teacherStats = useMemo(() => {
     return teachers.map((t) => {
       const assignedSubjects = subjects.filter((s) => s.teacherId === t.id);
-      const requiredPeriods  = assignedSubjects.reduce((sum, s) => sum + (s.requiredPeriods || 0), 0);
+      const requiredPeriods  = assignedSubjects.reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
       const distinctClasses  = [...new Set(assignedSubjects.map((s) => s.classId))];
 
       // Scheduled periods from timetable
@@ -97,7 +97,7 @@ export default function ReportsPage() {
   const classStats = useMemo(() => {
     return classes.map((cls) => {
       const clsSubjects    = subjects.filter((s) => s.classId === cls.id);
-      const totalPeriods   = clsSubjects.reduce((sum, s) => sum + (s.requiredPeriods || 0), 0);
+      const totalPeriods   = clsSubjects.reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
       const missingTeacher = clsSubjects.filter((s) => !s.teacherId).length;
       const electiveCount  = clsSubjects.filter((s) => s.isElective).length;
 
@@ -171,7 +171,7 @@ export default function ReportsPage() {
   }, [subjects, classTimetables, classes, timetables]);
 
   /* ── Summary numbers ── */
-  const totalRequiredPeriods = subjects.reduce((sum, s) => sum + (s.requiredPeriods || 0), 0);
+  const totalRequiredPeriods = subjects.reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
   const schedulableSlots = settings.workingDays.length * (settings.periodsPerDay - (settings.breakPeriods || []).length) * classes.length;
 
   return (
@@ -290,7 +290,7 @@ export default function ReportsPage() {
                 {/* Unique subject names */}
                 {[...new Set(subjects.map((s) => s.name))].map((name) => {
                   const subs = subjects.filter((s) => s.name === name);
-                  const totalPeriods = subs.reduce((sum, s) => sum + (s.requiredPeriods || 0), 0);
+                  const totalPeriods = subs.reduce((sum, s) => sum + (Number(s.requiredPeriods) || 0), 0);
                   const sampleColor = subs[0]?.color || '#6366f1';
                   return (
                     <div key={name} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.5rem 0', borderBottom: '1px solid var(--color-border)' }}>
