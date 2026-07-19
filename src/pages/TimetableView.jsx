@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import useStore from '../store/useStore';
 import { generateTimetable, validateTimetable, getSchedulableIndexes, DAY_NAMES, formatPeriodTime } from '../utils/generator';
-import { exportToPDF, exportAllTimetablesPDF } from '../utils/pdfExport';
+import { exportToPDF, exportAllTimetablesPDF, exportMasterSchedulePDF } from '../utils/pdfExport';
 import { Play, Download, Printer, Users, BookOpen, FileDown, RefreshCw, Coffee, Zap, Calendar as CalendarIcon, ClipboardList, AlertTriangle, AlertCircle } from 'lucide-react';
 import { showToast } from '../components/Toast';
 import Modal from '../components/Modal';
@@ -639,6 +639,19 @@ export default function TimetableView() {
     finally { setIsExporting(false); }
   };
 
+  const handleExportMasterBooklet = async () => {
+    setIsExporting(true);
+    try {
+      await exportMasterSchedulePDF(classes, teachers, subjects, settings);
+      showToast('Master Booklet exported successfully!', 'success');
+    } catch (e) {
+      console.error(e);
+      showToast('Export booklet failed', 'error');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div>
       {/* ── Header ── */}
@@ -656,9 +669,12 @@ export default function TimetableView() {
               </button>
               {viewMode === 'class' && (
                 <button className="btn btn-secondary" onClick={handleExportAll} disabled={isExporting}>
-                  <FileDown size={16}/> Export All
+                  <FileDown size={16}/> Export All Classes
                 </button>
               )}
+              <button className="btn btn-secondary" onClick={handleExportMasterBooklet} disabled={isExporting}>
+                <FileDown size={16}/> Export Master Booklet
+              </button>
               <button className="btn btn-secondary" onClick={() => { clearTimetables(); setActiveId(null); }}>
                 <RefreshCw size={16}/> Regenerate
               </button>
@@ -877,8 +893,8 @@ export default function TimetableView() {
           </div>
 
           {/* Grids */}
-          {viewMode === 'class'
-            ? classes.map((cls) => (
+          <div style={{ display: viewMode === 'class' ? 'block' : 'none' }}>
+            {classes.map((cls) => (
               <div key={cls.id} style={{ display: cls.id === effectiveId ? 'block' : 'none' }}>
                 <ClassTimetableGrid
                   classId={cls.id}
@@ -894,8 +910,11 @@ export default function TimetableView() {
                   onCellClick={(dayIdx, periodIdx) => setActiveEditCell({ classId: cls.id, dayIdx, periodIdx })}
                 />
               </div>
-            ))
-            : teachers.map((t) => (
+            ))}
+          </div>
+
+          <div style={{ display: viewMode === 'teacher' ? 'block' : 'none' }}>
+            {teachers.map((t) => (
               <div key={t.id} style={{ display: t.id === effectiveId ? 'block' : 'none' }}>
                 <TeacherTimetableGrid
                   teacherId={t.id}
@@ -912,6 +931,7 @@ export default function TimetableView() {
                 />
               </div>
             ))}
+          </div>
 
           {/* Subject legend */}
           {viewMode === 'class' && effectiveId && (() => {
