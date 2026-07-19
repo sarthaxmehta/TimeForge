@@ -137,7 +137,7 @@ export default function SubstitutionsPage() {
       .map((t) => {
         // Calculate dynamic period count (regular + substitutions today)
         const regularCount = Object.values(timetables.teacherTimetables[t.id] || {})
-          .reduce((sum, day) => sum + Object.values(day).filter(slot => slot && !slot.startsWith('__')).length, 0);
+          .reduce((sum, day) => sum + Object.values(day).filter(slot => slot && (typeof slot === 'object' || (typeof slot === 'string' && !slot.startsWith('__')))).length, 0);
 
         const subCount = substitutions.filter(sub => sub.substituteTeacherId === t.id).length;
         const totalLoad = regularCount + subCount;
