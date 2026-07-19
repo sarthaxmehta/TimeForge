@@ -108,6 +108,7 @@ const DEFAULT_SETTINGS = {
   /* Schedule */
   workingDays: [0, 1, 2, 3, 4],  // 0=Mon … 6=Sun
   periods: SCHOOL_PRESET_PERIODS, // NEW: per-period config
+  assignFirstPeriodToClassTeacher: false, // Option to assign first period to class teacher
 
   /* Legacy (kept for migration) */
   periodsPerDay: 11,
@@ -129,7 +130,7 @@ const DEFAULT_SETTINGS = {
 
 /* ─────────────────────────────────────────────────────────────
    STORE
-───────────────────────────────────────────────────────────────*/
+   ───────────────────────────────────────────────────────────────*/
 const useStore = create(
   persist(
     (set, get) => ({
@@ -140,6 +141,8 @@ const useStore = create(
       subjectTemplates: [],
       departments: [],        // { id, name, headId }
       timetables: {},
+      absences: [],           // { id, date, teacherId }
+      substitutions: [],      // { id, date, periodIdx, classId, originalTeacherId, substituteTeacherId, subjectId }
 
       /* ── Settings ── */
       updateSettings: (patch) =>
@@ -353,6 +356,43 @@ const useStore = create(
       setTimetables: (timetables) => set({ timetables }),
       clearTimetables: () => set({ timetables: {} }),
 
+      /* ── Absences & Substitutions ── */
+      addAbsence: (date, teacherId) =>
+        set((state) => ({
+          absences: [
+            ...state.absences.filter((a) => !(a.date === date && a.teacherId === teacherId)),
+            { id: uuidv4(), date, teacherId },
+          ],
+        })),
+
+      removeAbsence: (date, teacherId) =>
+        set((state) => ({
+          absences: state.absences.filter((a) => !(a.date === date && a.teacherId === teacherId)),
+          // Also clear substitutions where this teacher was the substitute or original for this date
+          substitutions: state.substitutions.filter(
+            (s) => !(s.date === date && (s.originalTeacherId === teacherId || s.substituteTeacherId === teacherId))
+          ),
+        })),
+
+      addSubstitution: (sub) =>
+        set((state) => ({
+          substitutions: [
+            ...state.substitutions.filter(
+              (s) => !(s.date === sub.date && s.periodIdx === sub.periodIdx && s.classId === sub.classId)
+            ),
+            { id: uuidv4(), ...sub },
+          ],
+        })),
+
+      removeSubstitution: (id) =>
+        set((state) => ({ substitutions: state.substitutions.filter((s) => s.id !== id) })),
+
+      clearSubstitutionsForDate: (date) =>
+        set((state) => ({
+          substitutions: state.substitutions.filter((s) => s.date !== date),
+          absences: state.absences.filter((a) => a.date !== date),
+        })),
+
       /* ── Data Management ── */
       exportData: () => {
         const s = get();
@@ -364,6 +404,8 @@ const useStore = create(
           subjectTemplates: s.subjectTemplates,
           departments: s.departments,
           timetables: s.timetables,
+          absences: s.absences,
+          substitutions: s.substitutions,
         }, null, 2);
       },
 
@@ -378,15 +420,26 @@ const useStore = create(
             subjectTemplates: data.subjectTemplates || [],
             departments: data.departments || [],
             timetables: data.timetables || {},
+            absences: data.absences || [],
+            substitutions: data.substitutions || [],
           });
           return true;
         } catch { return false; }
       },
 
       clearAllData: () =>
-        set({ teachers: [], classes: [], subjects: [], subjectTemplates: [], departments: [], timetables: {} }),
+        set({
+          teachers: [],
+          classes: [],
+          subjects: [],
+          subjectTemplates: [],
+          departments: [],
+          timetables: {},
+          absences: [],
+          substitutions: [],
+        }),
     }),
-    { name: 'timeforge-storage-v4' }
+    { name: 'timeforge-storage-v5' } // Incremented the persist key to avoid loading old state versions incompatibly
   )
 );
 

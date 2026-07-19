@@ -413,6 +413,25 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
+                {/* Class Teacher First Period Rule */}
+                <div className="settings-section">
+                  <div className="settings-section-title">
+                    <GraduationCap size={15} color="var(--color-primary)" /> Class Teacher Allocation
+                  </div>
+                  <div className="settings-section-desc">
+                    Determine scheduling priorities for the start of the day.
+                  </div>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <div>
+                      <div style={{ fontWeight: 700, fontSize: '0.9375rem' }}>Assign first period to class teacher</div>
+                      <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                        Forces the first schedulable class period of each day to be taught by the class teacher.
+                      </div>
+                    </div>
+                    <Toggle value={!!local.assignFirstPeriodToClassTeacher} onChange={(v) => set('assignFirstPeriodToClassTeacher', v)} />
+                  </div>
+                </div>
+
                 {/* Auto-generate hint */}
                 <div className="settings-section" style={{ borderBottom: 'none', marginBottom: 0 }}>
                   <div className="settings-section-title"><Clock size={15} /> Period Auto-Generator</div>

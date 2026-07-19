@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   LayoutDashboard, Users, BookOpen, Calendar,
-  Settings, GraduationCap, BarChart2, Menu, X
+  Settings, GraduationCap, BarChart2, Menu, X, UserX
 } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import TeachersPage from './pages/TeachersPage';
@@ -9,25 +9,28 @@ import ClassesPage from './pages/ClassesPage';
 import TimetableView from './pages/TimetableView';
 import SettingsPage from './pages/SettingsPage';
 import ReportsPage from './pages/ReportsPage';
+import SubstitutionsPage from './pages/SubstitutionsPage';
 import ToastContainer from './components/Toast';
 import useStore from './store/useStore';
 
 const NAV_ITEMS = [
-  { id: 'dashboard',  label: 'Dashboard',          icon: LayoutDashboard, group: 'OVERVIEW' },
-  { id: 'reports',    label: 'Reports & Analytics', icon: BarChart2,       group: 'OVERVIEW' },
-  { id: 'teachers',   label: 'Teachers',            icon: Users,           group: 'MANAGEMENT' },
-  { id: 'classes',    label: 'Classes & Subjects',  icon: BookOpen,        group: 'MANAGEMENT' },
-  { id: 'timetable',  label: 'Timetables',          icon: Calendar,        group: 'MANAGEMENT' },
-  { id: 'settings',   label: 'Settings',            icon: Settings,        group: 'SYSTEM' },
+  { id: 'dashboard',     label: 'Dashboard',          icon: LayoutDashboard, group: 'OVERVIEW' },
+  { id: 'reports',       label: 'Reports & Analytics', icon: BarChart2,       group: 'OVERVIEW' },
+  { id: 'teachers',      label: 'Teachers',            icon: Users,           group: 'MANAGEMENT' },
+  { id: 'classes',       label: 'Classes & Subjects',  icon: BookOpen,        group: 'MANAGEMENT' },
+  { id: 'timetable',     label: 'Timetables',          icon: Calendar,        group: 'MANAGEMENT' },
+  { id: 'substitutions', label: 'Substitutions',       icon: UserX,           group: 'MANAGEMENT' },
+  { id: 'settings',      label: 'Settings',            icon: Settings,        group: 'SYSTEM' },
 ];
 
 const PAGE_MAP = {
-  dashboard: Dashboard,
-  reports:   ReportsPage,
-  teachers:  TeachersPage,
-  classes:   ClassesPage,
-  timetable: TimetableView,
-  settings:  SettingsPage,
+  dashboard:     Dashboard,
+  reports:       ReportsPage,
+  teachers:      TeachersPage,
+  classes:       ClassesPage,
+  timetable:     TimetableView,
+  substitutions: SubstitutionsPage,
+  settings:      SettingsPage,
 };
 
 export default function App() {

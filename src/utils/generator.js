@@ -90,6 +90,40 @@ export function generateTimetable(classes, subjects, teachers, settings) {
   for (let di = 0; di < numDays; di++) {
     for (const p of schedulableIdxs) {
       const busyTeachers = new Set();
+
+      // Pass 1: Handle class teacher assigning if option is enabled and it is the first schedulable period
+      const isFirstPeriod = (p === schedulableIdxs[0]);
+      if (isFirstPeriod && settings.assignFirstPeriodToClassTeacher) {
+        for (const cls of classes) {
+          if (!cls.classTeacherId) continue;
+
+          // 1. Find if class teacher teaches a subject here
+          const ctSubject = subjects.find(
+            (s) => s.classId === cls.id && s.teacherId === cls.classTeacherId && remaining[s.id] > 0
+          );
+
+          if (ctSubject) {
+            const teacher = teachers.find((t) => t.id === cls.classTeacherId);
+            const maxP = teacher ? teacher.maxPeriods : Infinity;
+            if (!busyTeachers.has(cls.classTeacherId) && teacherCount[cls.classTeacherId] < maxP) {
+              classTimetables[cls.id][di][p] = ctSubject.id;
+              teacherTimetables[cls.classTeacherId][di][p] = { subjectId: ctSubject.id, classId: cls.id };
+              remaining[ctSubject.id]--;
+              busyTeachers.add(cls.classTeacherId);
+              teacherCount[cls.classTeacherId]++;
+            }
+          } else {
+            // 2. Otherwise, assign a virtual "Homeroom" session with the class teacher (if they aren't busy)
+            if (!busyTeachers.has(cls.classTeacherId)) {
+              classTimetables[cls.id][di][p] = `__homeroom__:${cls.classTeacherId}`;
+              teacherTimetables[cls.classTeacherId][di][p] = { subjectId: `__homeroom__:${cls.classTeacherId}`, classId: cls.id };
+              busyTeachers.add(cls.classTeacherId);
+            }
+          }
+        }
+      }
+
+      // Pass 2: Fill rest of the schedule normally
       const shuffledClasses = [...classes].sort(() => Math.random() - 0.5);
 
       for (const cls of shuffledClasses) {

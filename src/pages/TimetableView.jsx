@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import useStore from '../store/useStore';
 import { generateTimetable, DAY_NAMES, formatPeriodTime } from '../utils/generator';
 import { exportToPDF, exportAllTimetablesPDF } from '../utils/pdfExport';
-import { Play, Download, Printer, Users, BookOpen, FileDown, RefreshCw, Coffee, Zap } from 'lucide-react';
+import { Play, Download, Printer, Users, BookOpen, FileDown, RefreshCw, Coffee, Zap, Calendar as CalendarIcon, ClipboardList } from 'lucide-react';
 import { showToast } from '../components/Toast';
 
 /* ─── Helpers ─── */
@@ -60,7 +60,7 @@ function NonClassCell({ period }) {
 }
 
 /* ── Class Timetable Grid ── */
-function ClassTimetableGrid({ timetable, subjects, teachers, settings, gridId }) {
+function ClassTimetableGrid({ classId, timetable, subjects, teachers, settings, gridId, isDailyView, selectedDate, absences = [], substitutions = [] }) {
   const { workingDays, periods = [], showPeriodTimes, showPeriodNames, showTeacherInCell, timetableTheme } = settings;
   const NON_CLASS = new Set(['break','lunch','assembly','free']);
 
@@ -98,15 +98,114 @@ function ClassTimetableGrid({ timetable, subjects, teachers, settings, gridId })
                   </div>
                 </td>
                 {workingDays.map((_, di) => {
-                  const val = timetable?.[di]?.[p];
-                  if (isNonClass || val?.startsWith?.('__')) {
+                  let val = timetable?.[di]?.[p];
+                  let isSubstituted = false;
+                  let isAbsentWithoutSub = false;
+                  let substituteTeacher = null;
+
+                  // ── Daily adjustments resolution ──
+                  if (isDailyView && selectedDate) {
+                    const baseDate = new Date(selectedDate);
+                    const day = baseDate.getDay();
+                    const baseDayIdx = day === 0 ? 6 : day - 1;
+                    const diff = di - baseDayIdx;
+                    const colDateObj = new Date(baseDate);
+                    colDateObj.setDate(baseDate.getDate() + diff);
+                    const colDate = colDateObj.toISOString().split('T')[0];
+
+                    const subRecord = substitutions.find(
+                      (s) => s.date === colDate && s.classId === classId && s.periodIdx === p
+                    );
+
+                    if (subRecord) {
+                      val = subRecord.subjectId;
+                      isSubstituted = true;
+                      substituteTeacher = teachers.find((t) => t.id === subRecord.substituteTeacherId);
+                    } else if (val && !val.startsWith('__')) {
+                      const regularSub = subjects.find((s) => s.id === val);
+                      if (regularSub && absences.some((a) => a.date === colDate && a.teacherId === regularSub.teacherId)) {
+                        isAbsentWithoutSub = true;
+                      }
+                    }
+                  }
+
+                  const isHomeroom = val?.startsWith?.('__homeroom__');
+
+                  if (isNonClass || (val?.startsWith?.('__') && !isHomeroom)) {
                     return (
                       <td key={di}><NonClassCell period={period} /></td>
                     );
                   }
+
+                  // ── Homeroom cell ──
+                  if (isHomeroom) {
+                    const teacherId = val.split(':')[1];
+                    const teacher = teachers.find((t) => t.id === teacherId);
+
+                    let hrTeacherAbsent = false;
+                    let hrSubstitute = null;
+
+                    if (isDailyView && selectedDate) {
+                      const baseDate = new Date(selectedDate);
+                      const day = baseDate.getDay();
+                      const baseDayIdx = day === 0 ? 6 : day - 1;
+                      const diff = di - baseDayIdx;
+                      const colDateObj = new Date(baseDate);
+                      colDateObj.setDate(baseDate.getDate() + diff);
+                      const colDate = colDateObj.toISOString().split('T')[0];
+
+                      const subRecord = substitutions.find(
+                        (s) => s.date === colDate && s.classId === classId && s.periodIdx === p
+                      );
+
+                      if (subRecord) {
+                        hrSubstitute = teachers.find(t => t.id === subRecord.substituteTeacherId);
+                      } else if (teacher && absences.some((a) => a.date === colDate && a.teacherId === teacher.id)) {
+                        hrTeacherAbsent = true;
+                      }
+                    }
+
+                    const hrColor = hrTeacherAbsent ? '#dc2626' : hrSubstitute ? '#059669' : '#4f46e5';
+                    const colors = applyTheme(hrColor, timetableTheme);
+
+                    return (
+                      <td key={di}>
+                        <div className="timetable-cell filled" style={{
+                          background: colors.bg,
+                          border: `1.5px solid ${colors.border}`,
+                          animation: hrTeacherAbsent ? 'pulse 2s infinite' : 'none'
+                        }}>
+                          <div className="cell-subject" style={{ color: colors.text }}>Homeroom</div>
+                          {hrSubstitute ? (
+                            <div className="cell-teacher" style={{ color: colors.text, fontWeight: 700 }}>
+                              Cover: {hrSubstitute.name}
+                            </div>
+                          ) : teacher ? (
+                            <div className="cell-teacher" style={{ color: colors.text, textDecoration: hrTeacherAbsent ? 'line-through' : 'none' }}>
+                              {teacher.name}
+                            </div>
+                          ) : null}
+                          {hrTeacherAbsent && (
+                            <div style={{ fontSize: '0.65rem', color: '#dc2626', fontWeight: 800, marginTop: 2 }}>⚠️ ABSENT</div>
+                          )}
+                          {hrSubstitute && (
+                            <div style={{ fontSize: '0.65rem', color: '#059669', fontWeight: 800, marginTop: 2 }}>🔄 SUBSTITUTED</div>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  }
+
+                  // ── Regular cell ──
                   const sub = val ? subjects.find((s) => s.id === val) : null;
-                  const teacher = sub ? teachers.find((t) => t.id === sub.teacherId) : null;
-                  const colors = applyTheme(sub?.color || '#6366f1', timetableTheme);
+                  const teacher = isSubstituted ? substituteTeacher : (sub ? teachers.find((t) => t.id === sub.teacherId) : null);
+                  let cellBg = sub?.color || '#6366f1';
+                  if (isAbsentWithoutSub) {
+                    cellBg = '#dc2626';
+                  } else if (isSubstituted) {
+                    cellBg = '#059669';
+                  }
+                  const colors = applyTheme(cellBg, timetableTheme);
 
                   return (
                     <td key={di}>
@@ -116,6 +215,7 @@ function ClassTimetableGrid({ timetable, subjects, teachers, settings, gridId })
                           style={{
                             background: colors.bg,
                             border: `1.5px solid ${colors.border}`,
+                            animation: isAbsentWithoutSub ? 'pulse 2s infinite' : 'none'
                           }}
                         >
                           <div className="cell-subject" style={{ color: colors.text }}>
@@ -123,9 +223,15 @@ function ClassTimetableGrid({ timetable, subjects, teachers, settings, gridId })
                             {sub.code && <span style={{ fontWeight: 500, opacity: 0.7, fontSize: '0.65rem', marginLeft: 3 }}>({sub.code})</span>}
                           </div>
                           {showTeacherInCell && teacher && (
-                            <div className="cell-teacher" style={{ color: colors.text }}>
-                              {teacher.name}
+                            <div className="cell-teacher" style={{ color: colors.text, textDecoration: isAbsentWithoutSub ? 'line-through' : 'none' }}>
+                              {isSubstituted ? `Cover: ${teacher.name}` : teacher.name}
                             </div>
+                          )}
+                          {isAbsentWithoutSub && (
+                            <div style={{ fontSize: '0.65rem', color: '#dc2626', fontWeight: 800, marginTop: 2 }}>⚠️ ABSENT</div>
+                          )}
+                          {isSubstituted && (
+                            <div style={{ fontSize: '0.65rem', color: '#059669', fontWeight: 800, marginTop: 2 }}>🔄 COVER ASSIGNED</div>
                           )}
                         </div>
                       ) : (
@@ -144,7 +250,7 @@ function ClassTimetableGrid({ timetable, subjects, teachers, settings, gridId })
 }
 
 /* ── Teacher Timetable Grid ── */
-function TeacherTimetableGrid({ teacherTimetable, subjects, classes, settings, gridId }) {
+function TeacherTimetableGrid({ teacherId, teacherTimetable, subjects, classes, teachers, settings, gridId, isDailyView, selectedDate, absences = [], substitutions = [] }) {
   const { workingDays, periods = [], showPeriodTimes, showPeriodNames, timetableTheme } = settings;
   const NON_CLASS = new Set(['break','lunch','assembly','free']);
 
@@ -172,14 +278,86 @@ function TeacherTimetableGrid({ teacherTimetable, subjects, classes, settings, g
                   </div>
                 </td>
                 {workingDays.map((_, di) => {
-                  const val = teacherTimetable?.[di]?.[p];
-                  if (isNonClass || val?.startsWith?.('__')) {
+                  let subjectId = null;
+                  let classId = null;
+                  let isSubstituteAssignedHere = false;
+                  let isAbsentCol = false;
+                  let isNormalSubstitutedAway = false;
+
+                  if (isDailyView && selectedDate) {
+                    const baseDate = new Date(selectedDate);
+                    const day = baseDate.getDay();
+                    const baseDayIdx = day === 0 ? 6 : day - 1;
+                    const diff = di - baseDayIdx;
+                    const colDateObj = new Date(baseDate);
+                    colDateObj.setDate(baseDate.getDate() + diff);
+                    const colDate = colDateObj.toISOString().split('T')[0];
+
+                    isAbsentCol = absences.some((a) => a.date === colDate && a.teacherId === teacherId);
+
+                    // Check if this teacher is assigned as a substitute in ANY class at this slot
+                    const subRecord = substitutions.find(
+                      (s) => s.date === colDate && s.substituteTeacherId === teacherId && s.periodIdx === p
+                    );
+
+                    if (subRecord) {
+                      subjectId = subRecord.subjectId;
+                      classId = subRecord.classId;
+                      isSubstituteAssignedHere = true;
+                    } else {
+                      const normalVal = teacherTimetable?.[di]?.[p];
+                      if (normalVal && typeof normalVal === 'object') {
+                        // Check if normal class slot was substituted away due to this teacher being absent
+                        if (isAbsentCol) {
+                          isNormalSubstitutedAway = true;
+                        } else {
+                          subjectId = normalVal.subjectId;
+                          classId = normalVal.classId;
+                        }
+                      }
+                    }
+                  } else {
+                    const normalVal = teacherTimetable?.[di]?.[p];
+                    if (normalVal && typeof normalVal === 'object') {
+                      subjectId = normalVal.subjectId;
+                      classId = normalVal.classId;
+                    }
+                  }
+
+                  const isHomeroom = subjectId?.startsWith?.('__homeroom__');
+
+                  if (isNonClass) {
                     return <td key={di}><NonClassCell period={period} /></td>;
                   }
-                  const { subjectId, classId } = val || {};
-                  const sub = subjectId ? subjects.find((s) => s.id === subjectId) : null;
+
+                  // ── Homeroom cell ──
+                  if (isHomeroom) {
+                    const cls = classId ? classes.find((c) => c.id === classId) : null;
+                    const colors = applyTheme(isSubstituteAssignedHere ? '#059669' : '#4f46e5', timetableTheme);
+                    return (
+                      <td key={di}>
+                        <div className="timetable-cell filled" style={{ background: colors.bg, border: `1.5px solid ${colors.border}` }}>
+                          <div className="cell-subject" style={{ color: colors.text }}>Homeroom</div>
+                          {cls && <div className="cell-teacher" style={{ color: colors.text }}>
+                            Class {cls.name}{cls.section ? `-${cls.section}` : ''}
+                          </div>}
+                          {isSubstituteAssignedHere && (
+                            <div style={{ fontSize: '0.65rem', color: '#059669', fontWeight: 800, marginTop: 2 }}>🔄 COVERAGE SLOT</div>
+                          )}
+                        </div>
+                      </td>
+                    );
+                  }
+
+                  const sub = (subjectId && !isHomeroom) ? subjects.find((s) => s.id === subjectId) : null;
                   const cls = classId ? classes.find((c) => c.id === classId) : null;
-                  const colors = applyTheme(sub?.color || '#6366f1', timetableTheme);
+
+                  let cellColor = sub?.color || '#6366f1';
+                  if (isSubstituteAssignedHere) {
+                    cellColor = '#059669'; // Green for substitution coverage
+                  }
+
+                  const colors = applyTheme(cellColor, timetableTheme);
 
                   return (
                     <td key={di}>
@@ -189,6 +367,13 @@ function TeacherTimetableGrid({ teacherTimetable, subjects, classes, settings, g
                           {cls && <div className="cell-teacher" style={{ color: colors.text }}>
                             {cls.name}{cls.section ? ` – ${cls.section}` : ''}
                           </div>}
+                          {isSubstituteAssignedHere && (
+                            <div style={{ fontSize: '0.65rem', color: '#059669', fontWeight: 800, marginTop: 2 }}>🔄 COVERAGE ASSIGNED</div>
+                          )}
+                        </div>
+                      ) : isNormalSubstitutedAway ? (
+                        <div className="timetable-cell empty" style={{ background: '#fef2f2', border: '1px dashed #fee2e2', color: '#dc2626', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.72rem', fontWeight: 700 }}>
+                          ABSENT (COVERED)
                         </div>
                       ) : (
                         <div className="timetable-cell empty">—</div>
@@ -209,11 +394,18 @@ function TeacherTimetableGrid({ teacherTimetable, subjects, classes, settings, g
    MAIN PAGE
 ═══════════════════════════════════════ */
 export default function TimetableView() {
-  const { classes, subjects, teachers, settings, timetables, setTimetables, clearTimetables } = useStore();
+  const { classes, subjects, teachers, settings, timetables, absences, substitutions, setTimetables, clearTimetables } = useStore();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting,  setIsExporting]  = useState(false);
   const [viewMode,     setViewMode]     = useState('class');
   const [activeId,     setActiveId]     = useState(null);
+
+  // Daily Schedule state
+  const [timetableMode, setTimetableMode] = useState('base'); // 'base' | 'daily'
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    return today.toISOString().split('T')[0];
+  });
 
   const classTimetables   = timetables.classTimetables   || {};
   const teacherTimetables = timetables.teacherTimetables || {};
@@ -224,6 +416,11 @@ export default function TimetableView() {
 
   const activeClass   = classes.find((c) => c.id === effectiveId);
   const activeTeacher = teachers.find((t) => t.id === effectiveId);
+
+  const weekdayName = DAY_NAMES[(() => {
+    const day = new Date(selectedDate).getDay();
+    return day === 0 ? 6 : day - 1;
+  })()];
 
   /* ── Generate ── */
   const handleGenerate = () => {
@@ -338,6 +535,43 @@ export default function TimetableView() {
         </div>
       ) : (
         <div>
+          {/* ── Mode selector bar ── */}
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', background: 'white', padding: '0.75rem 1.25rem', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)', marginBottom: '1.25rem', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <button
+                className={`btn btn-sm ${timetableMode === 'base' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setTimetableMode('base')}
+                style={{ borderRadius: 'var(--radius-full)' }}
+              >
+                <ClipboardList size={14} /> Base Weekly Schedule
+              </button>
+              <button
+                className={`btn btn-sm ${timetableMode === 'daily' ? 'btn-primary' : 'btn-ghost'}`}
+                onClick={() => setTimetableMode('daily')}
+                style={{ borderRadius: 'var(--radius-full)' }}
+              >
+                <CalendarIcon size={14} /> Daily View & Substitutions
+              </button>
+            </div>
+
+            {timetableMode === 'daily' && (
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span style={{ fontSize: '0.8125rem', fontWeight: 800, color: 'var(--text-secondary)' }}>Select Date:</span>
+                <input
+                  type="date"
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  style={{
+                    padding: '0.35rem 0.625rem', borderRadius: 'var(--radius-md)',
+                    border: '1.5px solid var(--color-border)', fontWeight: 700,
+                    fontSize: '0.8125rem', outline: 'none'
+                  }}
+                />
+                <span className="badge badge-primary">{weekdayName}</span>
+              </div>
+            )}
+          </div>
+
           {/* View mode */}
           <div className="tabs-bar">
             <button className={`tab-btn ${viewMode==='class'?'active':''}`} onClick={() => { setViewMode('class'); setActiveId(null); }}>
@@ -383,6 +617,7 @@ export default function TimetableView() {
               <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
                 {settings.institutionName} · {settings.academicYear}
                 {settings.semester ? ` · ${settings.semester}` : ''}
+                {timetableMode === 'daily' && ` · Daily Log: ${selectedDate}`}
               </span>
             </div>
             <div style={{ display: 'flex', gap: '0.5rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
@@ -397,22 +632,33 @@ export default function TimetableView() {
             ? classes.map((cls) => (
               <div key={cls.id} style={{ display: cls.id === effectiveId ? 'block' : 'none' }}>
                 <ClassTimetableGrid
+                  classId={cls.id}
                   timetable={classTimetables[cls.id]}
                   subjects={subjects}
                   teachers={teachers}
                   settings={settings}
                   gridId={`grid-class-${cls.id}`}
+                  isDailyView={timetableMode === 'daily'}
+                  selectedDate={selectedDate}
+                  absences={absences}
+                  substitutions={substitutions}
                 />
               </div>
             ))
             : teachers.map((t) => (
               <div key={t.id} style={{ display: t.id === effectiveId ? 'block' : 'none' }}>
                 <TeacherTimetableGrid
+                  teacherId={t.id}
                   teacherTimetable={teacherTimetables[t.id]}
                   subjects={subjects}
                   classes={classes}
+                  teachers={teachers}
                   settings={settings}
                   gridId={`grid-teacher-${t.id}`}
+                  isDailyView={timetableMode === 'daily'}
+                  selectedDate={selectedDate}
+                  absences={absences}
+                  substitutions={substitutions}
                 />
               </div>
             ))}
