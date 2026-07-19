@@ -1,18 +1,24 @@
-import jsPDF from 'jsPDF';
+import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 
 /**
  * Export a timetable DOM element to a PDF file.
  * @param {string} elementId - ID of the DOM element to capture
- * @param {object} opts - { fileName, institutionName, title, academicYear, semester }
+ * @param {object} opts - settings/metadata fields
  */
 export async function exportToPDF(elementId, opts = {}) {
   const {
     fileName = 'timetable.pdf',
     institutionName = 'TimeForge Academy',
     title = 'Timetable',
-    academicYear = '2025–2026',
+    academicYear = '',
     semester = '',
+    address = '',
+    phone = '',
+    email = '',
+    website = '',
+    affiliation = '',
+    principalName = '',
   } = opts;
 
   const element = document.getElementById(elementId);
@@ -22,7 +28,7 @@ export async function exportToPDF(elementId, opts = {}) {
   element.classList.add('pdf-capture-mode');
 
   const canvas = await html2canvas(element, {
-    scale: 2.5, // High resolution scale
+    scale: 2.5,
     useCORS: true,
     backgroundColor: '#ffffff',
     logging: false,
@@ -36,7 +42,6 @@ export async function exportToPDF(elementId, opts = {}) {
   const imgW = canvas.width;
   const imgH = canvas.height;
 
-  // A4 landscape if wide, else portrait
   const isLandscape = imgW > imgH;
   const pdf = new jsPDF({
     orientation: isLandscape ? 'landscape' : 'portrait',
@@ -48,55 +53,99 @@ export async function exportToPDF(elementId, opts = {}) {
   const pageH = pdf.internal.pageSize.getHeight();
   const margin = 12;
 
-  // ── Header Banner ──
-  // Vibrant violet/indigo banner
-  pdf.setFillColor(79, 70, 229); // Brand primary
-  pdf.rect(0, 0, pageW, 24, 'F');
-
-  // Top accent border line
-  pdf.setFillColor(124, 58, 237); // Accent color
-  pdf.rect(0, 24, pageW, 1.5, 'F');
-
-  // Institution text
-  pdf.setTextColor(255, 255, 255);
+  // ── GRAND EUR NO-COLOR HEADER ──
+  // Left Side: Institution Name and details
+  pdf.setTextColor(15, 23, 42); // slate-900 (High contrast dark grey/black)
   pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(14);
-  pdf.text(institutionName.toUpperCase(), margin, 10.5);
+  pdf.setFontSize(16);
+  pdf.text((institutionName || 'TimeForge Academy').toUpperCase(), margin, 11);
 
-  // Subtitle info
+  let currentY = 15;
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(71, 85, 105); // slate-600
+
+  if (affiliation) {
+    pdf.setFont('helvetica', 'bold');
+    pdf.text(`Affiliation: ${affiliation}`, margin, currentY);
+    pdf.setFont('helvetica', 'normal');
+    currentY += 4;
+  }
+
+  if (address) {
+    pdf.text(address, margin, currentY);
+    currentY += 4;
+  }
+
+  const contactInfo = [
+    phone && `Phone: ${phone}`,
+    email && `Email: ${email}`,
+    website && `Web: ${website}`
+  ].filter(Boolean).join('   |   ');
+
+  if (contactInfo) {
+    pdf.text(contactInfo, margin, currentY);
+  }
+
+  // Right Side: Timetable info and signature
+  pdf.setTextColor(15, 23, 42); // slate-900
+  pdf.setFont('helvetica', 'bold');
+  pdf.setFontSize(13);
+  const rightTitle = title || 'Timetable';
+  const rightTitleW = pdf.getTextWidth(rightTitle);
+  pdf.text(rightTitle, pageW - margin - rightTitleW, 11);
+
   pdf.setFontSize(9.5);
   pdf.setFont('helvetica', 'bold');
-  const subLine = [title, academicYear, semester].filter(Boolean).join('   |   ');
-  pdf.text(subLine, margin, 18);
+  pdf.setTextColor(79, 70, 229); // Brand primary accent (Indigo)
+  const termDetails = [academicYear, semester].filter(Boolean).join('   |   ');
+  const termDetailsW = pdf.getTextWidth(termDetails);
+  pdf.text(termDetails, pageW - margin - termDetailsW, 15.5);
 
-  // Generated timestamp (right-aligned)
+  pdf.setFont('helvetica', 'normal');
+  pdf.setFontSize(8.5);
+  pdf.setTextColor(71, 85, 105); // slate-600
+
+  let rightY = 19.5;
+  if (principalName) {
+    const principalStr = `Principal: ${principalName}`;
+    const principalW = pdf.getTextWidth(principalStr);
+    pdf.text(principalStr, pageW - margin - principalW, rightY);
+    rightY += 4;
+  }
+
   const dateStr = `Exported: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
-  pdf.setFont('helvetica', 'bold');
-  pdf.setFontSize(9);
   const dateW = pdf.getTextWidth(dateStr);
-  pdf.text(dateStr, pageW - margin - dateW, 18);
+  pdf.text(dateStr, pageW - margin - dateW, rightY);
 
-  // ── Image Scaling & Centering ──
-  const contentY = 28;
+  // ── Elegance Double-Line Separator ──
+  pdf.setDrawColor(15, 23, 42); // slate-900 (Thicker line)
+  pdf.setLineWidth(0.6);
+  pdf.line(margin, 28, pageW - margin, 28);
+
+  pdf.setDrawColor(79, 70, 229); // Brand primary (Thinner accent line)
+  pdf.setLineWidth(0.4);
+  pdf.line(margin, 29.2, pageW - margin, 29.2);
+
+  // ── Image Positioning ──
+  const contentY = 32;
   const availW = pageW - margin * 2;
   const maxH = pageH - contentY - margin - 8;
 
-  // Fit width and height proportionally
   const finalScale = Math.min(availW / (canvas.width / 3.7795), maxH / (canvas.height / 3.7795));
   const finalW = (canvas.width / 3.7795) * finalScale;
   const finalH = (canvas.height / 3.7795) * finalScale;
 
-  // Center horizontally
   const xOffset = margin + (availW - finalW) / 2;
 
   pdf.addImage(imgData, 'PNG', xOffset, contentY, finalW, finalH);
 
-  // ── Bold Footer ──
+  // ── Footer ──
   pdf.setDrawColor(226, 232, 240);
   pdf.setLineWidth(0.5);
   pdf.line(margin, pageH - 8, pageW - margin, pageH - 8);
 
-  pdf.setTextColor(71, 85, 105); // slate-600
+  pdf.setTextColor(71, 85, 105);
   pdf.setFontSize(8);
   pdf.setFont('helvetica', 'bold');
   pdf.text('TimeForge Timetable System  |  Developed by Sarthak Mehta', margin, pageH - 4);
@@ -114,8 +163,14 @@ export async function exportToPDF(elementId, opts = {}) {
 export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) {
   const {
     institutionName = 'TimeForge Academy',
-    academicYear = '2025–2026',
-    semester = ''
+    academicYear = '',
+    semester = '',
+    address = '',
+    phone = '',
+    email = '',
+    website = '',
+    affiliation = '',
+    principalName = '',
   } = opts;
 
   const isLandscape = true;
@@ -136,7 +191,6 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
 
     if (i > 0) pdf.addPage();
 
-    // Add capturing styling class for BOLD contrast print
     element.classList.add('pdf-capture-mode');
 
     const canvas = await html2canvas(element, {
@@ -150,42 +204,92 @@ export async function exportAllTimetablesPDF(classIds, getElementId, opts = {}) 
 
     const imgData = canvas.toDataURL('image/png');
 
-    // ── Header Banner ──
-    pdf.setFillColor(79, 70, 229);
-    pdf.rect(0, 0, pageW, 24, 'F');
-
-    // Accent line
-    pdf.setFillColor(124, 58, 237);
-    pdf.rect(0, 24, pageW, 1.5, 'F');
-
-    pdf.setTextColor(255, 255, 255);
+    // ── GRAND EUR NO-COLOR HEADER ──
+    pdf.setTextColor(15, 23, 42); // slate-900
     pdf.setFont('helvetica', 'bold');
-    pdf.setFontSize(14);
-    pdf.text(institutionName.toUpperCase(), margin, 10.5);
+    pdf.setFontSize(16);
+    pdf.text((institutionName || 'TimeForge Academy').toUpperCase(), margin, 11);
+
+    let currentY = 15;
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(71, 85, 105);
+
+    if (affiliation) {
+      pdf.setFont('helvetica', 'bold');
+      pdf.text(`Affiliation: ${affiliation}`, margin, currentY);
+      pdf.setFont('helvetica', 'normal');
+      currentY += 4;
+    }
+
+    if (address) {
+      pdf.text(address, margin, currentY);
+      currentY += 4;
+    }
+
+    const contactInfo = [
+      phone && `Phone: ${phone}`,
+      email && `Email: ${email}`,
+      website && `Web: ${website}`
+    ].filter(Boolean).join('   |   ');
+
+    if (contactInfo) {
+      pdf.text(contactInfo, margin, currentY);
+    }
+
+    // Right Side: Class specific info
+    pdf.setTextColor(15, 23, 42);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setFontSize(13);
+    const rightTitle = `Class ${className} Timetable`;
+    const rightTitleW = pdf.getTextWidth(rightTitle);
+    pdf.text(rightTitle, pageW - margin - rightTitleW, 11);
 
     pdf.setFontSize(9.5);
-    const subLine = [`Class ${className} Timetable`, academicYear, semester].filter(Boolean).join('   |   ');
-    pdf.text(subLine, margin, 18);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(79, 70, 229);
+    const termDetails = [academicYear, semester].filter(Boolean).join('   |   ');
+    const termDetailsW = pdf.getTextWidth(termDetails);
+    pdf.text(termDetails, pageW - margin - termDetailsW, 15.5);
+
+    pdf.setFont('helvetica', 'normal');
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(71, 85, 105);
+
+    let rightY = 19.5;
+    if (principalName) {
+      const principalStr = `Principal: ${principalName}`;
+      const principalW = pdf.getTextWidth(principalStr);
+      pdf.text(principalStr, pageW - margin - principalW, rightY);
+      rightY += 4;
+    }
 
     const dateStr = `Exported: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}`;
-    pdf.setFontSize(9);
     const dateW = pdf.getTextWidth(dateStr);
-    pdf.text(dateStr, pageW - margin - dateW, 18);
+    pdf.text(dateStr, pageW - margin - dateW, rightY);
 
-    // ── Image Scaling & Positioning ──
-    const contentY = 28;
+    // Divider Line
+    pdf.setDrawColor(15, 23, 42);
+    pdf.setLineWidth(0.6);
+    pdf.line(margin, 28, pageW - margin, 28);
+
+    pdf.setDrawColor(79, 70, 229);
+    pdf.setLineWidth(0.4);
+    pdf.line(margin, 29.2, pageW - margin, 29.2);
+
+    // ── Image Scaling & Position ──
+    const contentY = 32;
     const availW = pageW - margin * 2;
     const maxH = pageH - contentY - margin - 8;
     const finalScale = Math.min(availW / (canvas.width / 3.7795), maxH / (canvas.height / 3.7795));
     const finalW = (canvas.width / 3.7795) * finalScale;
     const finalH = (canvas.height / 3.7795) * finalScale;
 
-    // Center horizontally
     const xOffset = margin + (availW - finalW) / 2;
 
     pdf.addImage(imgData, 'PNG', xOffset, contentY, finalW, finalH);
 
-    // ── Bold Footer ──
+    // Footer
     pdf.setDrawColor(226, 232, 240);
     pdf.setLineWidth(0.5);
     pdf.line(margin, pageH - 8, pageW - margin, pageH - 8);

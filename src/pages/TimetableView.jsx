@@ -453,9 +453,7 @@ export default function TimetableView() {
       }
       await exportToPDF(elementId, {
         fileName, title,
-        institutionName: settings.institutionName,
-        academicYear: settings.academicYear,
-        semester: settings.semester,
+        ...settings,
       });
       showToast('PDF exported!', 'success');
     } catch (e) {
@@ -472,7 +470,7 @@ export default function TimetableView() {
       await exportAllTimetablesPDF(
         classes.map((c) => ({ classId: c.id, className: `${c.name}${c.section ? ` – ${c.section}` : ''}` })),
         (id) => `grid-class-${id}`,
-        { institutionName: settings.institutionName, academicYear: settings.academicYear, semester: settings.semester }
+        { ...settings }
       );
       showToast('All timetables exported!', 'success');
     } catch (e) { showToast('Export failed', 'error'); }
