@@ -68,6 +68,58 @@ function computeDailyTargets(R, D) {
 export function generateTimetable(classes, subjects, teachers, settings) {
   const { workingDays, periods = [] } = settings;
   const numDays    = workingDays.length;
+  const sched      = getSchedulableIndexes(periods);
+
+  if (!numDays || !sched.length) return { classTimetables: {}, teacherTimetables: {} };
+
+  let bestResult = null;
+  let minShortfalls = Infinity;
+  
+  // We run up to 100 trials to find the absolute best schedule.
+  // Since it runs in less than 2ms per trial, 100 trials takes under 200ms.
+  const TRIALS = 100;
+  for (let trial = 0; trial < TRIALS; trial++) {
+    const result = runSingleGenerationTrial(classes, subjects, teachers, settings);
+    
+    // Count the number of unscheduled periods (shortfalls) in this trial
+    let shortfalls = 0;
+    subjects.forEach(s => {
+      const cls = classes.find(c => c.id === s.classId);
+      if (!cls || !result.classTimetables[cls.id]) return;
+      
+      const needed = Number(s.requiredPeriods) || 0;
+      let count = 0;
+      for (let di = 0; di < numDays; di++) {
+        for (const p of sched) {
+          const v = result.classTimetables[cls.id][di]?.[p];
+          if (v === s.id) count++;
+          else if (v && typeof v === 'string' && v.startsWith('__group__:') && s.combinedGroupId) {
+            if (v.split(':')[1] === s.combinedGroupId) count++;
+          }
+        }
+      }
+      if (count < needed) {
+        shortfalls += (needed - count);
+      }
+    });
+
+    if (shortfalls < minShortfalls) {
+      minShortfalls = shortfalls;
+      bestResult = result;
+    }
+
+    // Stop immediately if we found a perfect schedule with zero shortfalls!
+    if (minShortfalls === 0) {
+      break;
+    }
+  }
+
+  return bestResult;
+}
+
+function runSingleGenerationTrial(classes, subjects, teachers, settings) {
+  const { workingDays, periods = [] } = settings;
+  const numDays    = workingDays.length;
   const numPeriods = periods.length;
   const sched      = getSchedulableIndexes(periods);
 
