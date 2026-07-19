@@ -4,6 +4,7 @@ import { generateTimetable, validateTimetable, DAY_NAMES, formatPeriodTime } fro
 import { exportToPDF, exportAllTimetablesPDF } from '../utils/pdfExport';
 import { Play, Download, Printer, Users, BookOpen, FileDown, RefreshCw, Coffee, Zap, Calendar as CalendarIcon, ClipboardList, AlertTriangle, AlertCircle } from 'lucide-react';
 import { showToast } from '../components/Toast';
+import Modal from '../components/Modal';
 
 /* ─── Helpers ─── */
 function hexToRgb(hex) {
@@ -60,7 +61,7 @@ function NonClassCell({ period }) {
 }
 
 /* ── Class Timetable Grid ── */
-function ClassTimetableGrid({ classId, timetable, subjects, teachers, settings, gridId, isDailyView, selectedDate, absences = [], substitutions = [] }) {
+function ClassTimetableGrid({ classId, timetable, subjects, teachers, settings, gridId, isDailyView, selectedDate, absences = [], substitutions = [], onCellClick }) {
   const { workingDays, periods = [], showPeriodTimes, showPeriodNames, showTeacherInCell, timetableTheme } = settings;
   const NON_CLASS = new Set(['break','lunch','assembly','free']);
 
@@ -138,7 +139,7 @@ function ClassTimetableGrid({ classId, timetable, subjects, teachers, settings, 
                       (s) => s.combinedGroupId === groupId && s.classId === classId
                     );
                     return (
-                      <td key={di} style={{ padding: '2px' }}>
+                      <td key={di} style={{ padding: '2px', cursor: !isDailyView ? 'pointer' : 'default' }} onClick={() => !isDailyView && onCellClick && onCellClick(di, p)}>
                         <div
                           className="timetable-cell filled combined-period-cell"
                           style={{
@@ -267,7 +268,7 @@ function ClassTimetableGrid({ classId, timetable, subjects, teachers, settings, 
                     const colors = applyTheme(hrColor, timetableTheme);
 
                     return (
-                      <td key={di}>
+                      <td key={di} style={{ cursor: !isDailyView ? 'pointer' : 'default' }} onClick={() => !isDailyView && onCellClick && onCellClick(di, p)}>
                         <div className="timetable-cell filled" style={{
                           background: colors.bg,
                           border: `1.5px solid ${colors.border}`,
@@ -306,7 +307,7 @@ function ClassTimetableGrid({ classId, timetable, subjects, teachers, settings, 
                   const colors = applyTheme(cellBg, timetableTheme);
 
                   return (
-                    <td key={di}>
+                    <td key={di} style={{ cursor: !isDailyView ? 'pointer' : 'default' }} onClick={() => !isDailyView && onCellClick && onCellClick(di, p)}>
                       {sub ? (
                         <div
                           className="timetable-cell filled"
@@ -522,11 +523,12 @@ function TeacherTimetableGrid({ teacherId, teacherTimetable, subjects, classes, 
    MAIN PAGE
 ═══════════════════════════════════════ */
 export default function TimetableView() {
-  const { classes, subjects, teachers, settings, timetables, absences, substitutions, setTimetables, clearTimetables, combinedGroups = [] } = useStore();
+  const { classes, subjects, teachers, settings, timetables, absences, substitutions, setTimetables, clearTimetables, combinedGroups = [], setTimetableSlot } = useStore();
   const [isGenerating, setIsGenerating] = useState(false);
   const [isExporting,  setIsExporting]  = useState(false);
   const [viewMode,     setViewMode]     = useState('class');
   const [activeId,     setActiveId]     = useState(null);
+  const [activeEditCell, setActiveEditCell] = useState(null);
 
   // Daily Schedule state
   const [timetableMode, setTimetableMode] = useState('base'); // 'base' | 'daily'
@@ -549,6 +551,33 @@ export default function TimetableView() {
 
   const activeClass   = classes.find((c) => c.id === effectiveId);
   const activeTeacher = teachers.find((t) => t.id === effectiveId);
+
+  const editCellDetails = activeEditCell ? (() => {
+    const { classId, dayIdx, periodIdx } = activeEditCell;
+    const cls = classes.find(c => c.id === classId);
+    const period = settings.periods?.[periodIdx];
+    const dayName = DAY_NAMES[dayIdx];
+    
+    // Current subject assigned
+    const currentSubjectId = classTimetables[classId]?.[dayIdx]?.[periodIdx];
+    const currentSub = currentSubjectId ? subjects.find(s => s.id === currentSubjectId) : null;
+    const currentTeacher = currentSub ? teachers.find(t => t.id === currentSub.teacherId) : null;
+
+    // Subjects of this class
+    const classSubs = subjects.filter(s => s.classId === classId);
+
+    return {
+      cls,
+      period,
+      dayIdx,
+      periodIdx,
+      dayName,
+      currentSubjectId,
+      currentSub,
+      currentTeacher,
+      classSubs
+    };
+  })() : null;
 
   const weekdayName = DAY_NAMES[(() => {
     const day = new Date(selectedDate).getDay();
@@ -862,6 +891,7 @@ export default function TimetableView() {
                   selectedDate={selectedDate}
                   absences={absences}
                   substitutions={substitutions}
+                  onCellClick={(dayIdx, periodIdx) => setActiveEditCell({ classId: cls.id, dayIdx, periodIdx })}
                 />
               </div>
             ))
@@ -917,6 +947,162 @@ export default function TimetableView() {
               </div>
             );
           })()}
+      {/* ── Manual override / Swap resolver Modal ── */}
+      <Modal
+        isOpen={!!activeEditCell}
+        onClose={() => setActiveEditCell(null)}
+        title={editCellDetails ? `Edit Slot Assignment: ${editCellDetails.dayName}, ${editCellDetails.period?.name || `Slot ${editCellDetails.periodIdx + 1}`}` : ''}
+        size="md"
+      >
+        {editCellDetails && (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.35rem' }}>
+                Class Details
+              </div>
+              <div style={{ fontWeight: 800, fontSize: '1rem', color: 'var(--text-primary)' }}>
+                Class {editCellDetails.cls?.name}{editCellDetails.cls?.section ? ` - ${editCellDetails.cls.section}` : ''}
+              </div>
+              {editCellDetails.period?.startTime && (
+                <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginTop: '0.15rem' }}>
+                  Time: {editCellDetails.period.startTime} - {editCellDetails.period.endTime}
+                </div>
+              )}
+            </div>
+
+            <div style={{ padding: '0.75rem 1rem', background: 'var(--color-surface-2)', borderRadius: 'var(--radius-lg)', border: '1px solid var(--color-border)' }}>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.25rem' }}>
+                Current Assignment
+              </div>
+              {editCellDetails.currentSub ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <span style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--text-primary)' }}>
+                      {editCellDetails.currentSub.name}
+                    </span>
+                    {editCellDetails.currentTeacher && (
+                      <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)', marginLeft: '0.5rem' }}>
+                        · {editCellDetails.currentTeacher.name}
+                      </span>
+                    )}
+                  </div>
+                  <button
+                    className="btn btn-ghost btn-sm"
+                    style={{ color: 'var(--color-danger)', fontWeight: 700 }}
+                    onClick={() => {
+                      setTimetableSlot(editCellDetails.cls.id, editCellDetails.dayIdx, editCellDetails.periodIdx, null);
+                      showToast('Slot assignment cleared', 'success');
+                      setActiveEditCell(null);
+                    }}
+                  >
+                    Clear Slot
+                  </button>
+                </div>
+              ) : (
+                <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                  Empty (Free Period)
+                </div>
+              )}
+            </div>
+
+            <div>
+              <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.08em', marginBottom: '0.5rem' }}>
+                Assign Subject
+              </div>
+              {editCellDetails.classSubs.length === 0 ? (
+                <div style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>
+                  No subjects assigned to this class. Add subjects in Classes &amp; Subjects page.
+                </div>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: 300, overflowY: 'auto' }}>
+                  {editCellDetails.classSubs.map((s) => {
+                    const teacher = teachers.find(t => t.id === s.teacherId);
+                    
+                    // Check if teacher is free at this slot
+                    let isTeacherBusy = false;
+                    let busyWithClass = '';
+                    if (teacher) {
+                      const busySlot = teacherTimetables[teacher.id]?.[editCellDetails.dayIdx]?.[editCellDetails.periodIdx];
+                      if (busySlot && busySlot.classId && busySlot.classId !== editCellDetails.cls.id) {
+                        isTeacherBusy = true;
+                        const busyCls = classes.find(c => c.id === busySlot.classId);
+                        busyWithClass = busyCls ? `${busyCls.name}${busyCls.section ? `-${busyCls.section}` : ''}` : 'another class';
+                      }
+                    }
+
+                    // Count total periods currently scheduled for this subject in the class
+                    let currentCount = 0;
+                    for (let di = 0; di < settings.workingDays.length; di++) {
+                      for (const p of getSchedulableIndexes(settings.periods || [])) {
+                        if (classTimetables[editCellDetails.cls.id]?.[di]?.[p] === s.id) {
+                          currentCount++;
+                        }
+                      }
+                    }
+
+                    const isCurrent = editCellDetails.currentSubjectId === s.id;
+
+                    return (
+                      <div
+                        key={s.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '0.625rem 0.875rem',
+                          borderRadius: 'var(--radius-md)',
+                          border: isCurrent ? '1.5px solid var(--color-primary)' : '1px solid var(--color-border)',
+                          background: isCurrent ? 'var(--color-primary-soft)' : '#fff',
+                        }}
+                      >
+                        <div style={{ minWidth: 0, flex: 1, marginRight: '0.5rem' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', flexWrap: 'wrap' }}>
+                            <span style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
+                              {s.name}
+                            </span>
+                            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+                              ({currentCount} / {s.requiredPeriods} periods scheduled)
+                            </span>
+                          </div>
+                          {teacher && (
+                            <div style={{ fontSize: '0.75rem', marginTop: 1, display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                              <span style={{ color: 'var(--text-secondary)', fontWeight: 600 }}>{teacher.name}</span>
+                              {isTeacherBusy ? (
+                                <span style={{ color: 'var(--color-warning)', fontWeight: 700, fontSize: '0.7rem' }}>
+                                  ⚠️ Busy with Class {busyWithClass}
+                                </span>
+                              ) : (
+                                <span style={{ color: 'var(--color-success)', fontWeight: 700, fontSize: '0.7rem' }}>
+                                  ✓ Free
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                        <button
+                          className={`btn btn-xs ${isCurrent ? 'btn-neutral' : 'btn-primary'}`}
+                          disabled={isCurrent}
+                          onClick={() => {
+                            setTimetableSlot(editCellDetails.cls.id, editCellDetails.dayIdx, editCellDetails.periodIdx, s.id);
+                            if (isTeacherBusy) {
+                              showToast(`Assigned ${s.name}. Teacher was busy; conflicting slot in Class ${busyWithClass} has been cleared automatically to prevent double-booking.`, 'warning');
+                            } else {
+                              showToast(`Assigned ${s.name} successfully.`, 'success');
+                            }
+                            setActiveEditCell(null);
+                          }}
+                        >
+                          {isCurrent ? 'Current' : 'Assign'}
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
         </div>
       )}
     </div>

@@ -759,6 +759,62 @@ const useStore = create(
       /* ── Timetables ── */
       setTimetables: (timetables) => set({ timetables }),
       clearTimetables: () => set({ timetables: {} }),
+      setTimetableSlot: (classId, dayIdx, periodIdx, subjectId) =>
+        set((state) => {
+          const timetables = { ...state.timetables };
+          if (!timetables.classTimetables) return {};
+          
+          // 1. Get old subject at this slot
+          const oldSubjectId = timetables.classTimetables[classId]?.[dayIdx]?.[periodIdx];
+          
+          // 2. Clear old subject from class timetable and teacher timetable
+          if (oldSubjectId && typeof oldSubjectId === 'string' && !oldSubjectId.startsWith('__')) {
+            const oldSub = state.subjects.find(s => s.id === oldSubjectId);
+            if (oldSub && oldSub.teacherId) {
+              if (timetables.teacherTimetables[oldSub.teacherId]?.[dayIdx]) {
+                timetables.teacherTimetables[oldSub.teacherId][dayIdx][periodIdx] = null;
+              }
+            }
+          }
+          
+          // 3. Set new subject in class timetable
+          if (!timetables.classTimetables[classId]) {
+            timetables.classTimetables[classId] = {};
+          }
+          if (!timetables.classTimetables[classId][dayIdx]) {
+            timetables.classTimetables[classId][dayIdx] = {};
+          }
+          timetables.classTimetables[classId][dayIdx][periodIdx] = subjectId;
+          
+          // 4. Update new teacher timetable
+          if (subjectId && typeof subjectId === 'string' && !subjectId.startsWith('__')) {
+            const newSub = state.subjects.find(s => s.id === subjectId);
+            if (newSub && newSub.teacherId) {
+              if (!timetables.teacherTimetables[newSub.teacherId]) {
+                timetables.teacherTimetables[newSub.teacherId] = {};
+              }
+              if (!timetables.teacherTimetables[newSub.teacherId][dayIdx]) {
+                timetables.teacherTimetables[newSub.teacherId][dayIdx] = {};
+              }
+              
+              // Check if teacher is already busy at this slot in another class, if so, clear that class slot to prevent double-booking!
+              const existingTeacherSlot = timetables.teacherTimetables[newSub.teacherId][dayIdx][periodIdx];
+              if (existingTeacherSlot && existingTeacherSlot.classId && existingTeacherSlot.classId !== classId) {
+                const busyClassId = existingTeacherSlot.classId;
+                if (timetables.classTimetables[busyClassId]?.[dayIdx]) {
+                  timetables.classTimetables[busyClassId][dayIdx][periodIdx] = null;
+                }
+              }
+              
+              timetables.teacherTimetables[newSub.teacherId][dayIdx][periodIdx] = {
+                subjectId: newSub.id,
+                classId: classId
+              };
+            }
+          }
+          
+          return { timetables: { ...timetables } };
+        }),
 
       /* ── Absences & Substitutions ── */
       addAbsence: (date, teacherId) =>
