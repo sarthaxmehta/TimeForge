@@ -761,38 +761,52 @@ select.form-control {
 .timetable-grid {
   width: 100%;
   border-collapse: separate;
-  border-spacing: 3px;
+  border-spacing: 4px;
   font-size: 0.8125rem;
+  table-layout: fixed;
 }
 
 .timetable-grid th {
-  padding: 0.625rem 0.5rem;
+  padding: 0.75rem 0.625rem;
   text-align: center;
-  font-size: 0.72rem;
-  font-weight: 800;
-  color: var(--text-secondary);
+  font-size: 0.7rem;
+  font-weight: 900;
+  color: #1e293b;
   text-transform: uppercase;
-  letter-spacing: 0.07em;
-  background: linear-gradient(135deg, #f1f5f9, #e8ecf4);
-  border-radius: var(--radius-sm);
+  letter-spacing: 0.08em;
+  background: linear-gradient(160deg, #1e293b 0%, #334155 100%);
+  color: #f1f5f9;
+  border-radius: 8px;
 }
 
 .timetable-grid th.period-header {
   text-align: left;
-  padding-left: 0.75rem;
-  min-width: 110px;
+  padding-left: 1rem;
+  min-width: 120px;
+  background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+}
+
+.timetable-grid td {
+  vertical-align: top;
+  padding: 2px;
 }
 
 .timetable-cell {
-  padding: 0.5rem 0.625rem;
-  border-radius: var(--radius-md);
+  padding: 0.55rem 0.75rem;
+  border-radius: 10px;
   text-align: center;
   vertical-align: middle;
-  min-width: 115px;
-  min-height: 64px;
-  transition: all var(--transition-fast);
+  min-width: 120px;
+  min-height: 68px;
+  height: 68px;
+  transition: all 0.18s cubic-bezier(.4,0,.2,1);
   border: 1.5px solid transparent;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
 }
 
 .timetable-cell.filled {
@@ -800,74 +814,91 @@ select.form-control {
 }
 
 .timetable-cell.filled:hover {
-  transform: scale(1.03);
-  box-shadow: var(--shadow-md);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 24px rgba(0,0,0,0.14);
   z-index: 2;
 }
 
 .timetable-cell.empty {
-  background: repeating-linear-gradient(
-    45deg,
-    #f8fafc,
-    #f8fafc 4px,
-    #f1f5f9 4px,
-    #f1f5f9 8px
-  );
-  border-color: var(--color-border);
-  color: var(--text-muted);
+  background: #f8fafc;
+  border: 1.5px dashed #cbd5e1;
+  color: #94a3b8;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .timetable-cell.break-cell {
   background: linear-gradient(135deg, #fffbeb, #fef3c7);
-  border-color: #fbbf24;
+  border: 1.5px solid #fbbf24;
   color: #92400e;
   font-weight: 800;
   text-transform: uppercase;
-  font-size: 0.72rem;
+  font-size: 0.69rem;
   letter-spacing: 0.05em;
 }
 
 .timetable-cell.assembly-cell {
   background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-  border-color: #86efac;
+  border: 1.5px solid #86efac;
   color: #166534;
   font-weight: 800;
   text-transform: uppercase;
-  font-size: 0.72rem;
+  font-size: 0.69rem;
 }
 
 .cell-subject {
   font-weight: 800;
-  font-size: 0.8125rem;
-  margin-bottom: 3px;
+  font-size: 0.82rem;
+  line-height: 1.2;
   letter-spacing: -0.01em;
 }
 
 .cell-teacher {
-  font-size: 0.7rem;
-  opacity: 0.8;
-  font-weight: 600;
+  font-size: 0.68rem;
+  font-weight: 700;
+  opacity: 0.85;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 110px;
+}
+
+.cell-code {
+  font-size: 0.6rem;
+  font-weight: 700;
+  opacity: 0.6;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .period-label-col {
-  padding: 0.5rem 0.75rem;
-  border-radius: var(--radius-sm);
-  background: linear-gradient(135deg, #f1f5f9, #e8ecf4);
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  background: linear-gradient(160deg, #f1f5f9, #e8ecf4);
   text-align: left;
+  border-left: 3px solid #6366f1;
+  min-height: 68px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 
 .period-name {
-  font-weight: 800;
-  color: var(--text-primary);
-  font-size: 0.8rem;
+  font-weight: 900;
+  color: #0f172a;
+  font-size: 0.78rem;
   letter-spacing: -0.01em;
+  line-height: 1.2;
 }
 
 .period-time-row {
-  font-size: 0.68rem;
-  color: var(--text-muted);
-  font-weight: 600;
-  margin-top: 2px;
+  font-size: 0.65rem;
+  color: #6366f1;
+  font-weight: 700;
+  margin-top: 3px;
+  letter-spacing: 0.01em;
 }
 
 /* ══════════════════════════════════════
@@ -1185,6 +1216,123 @@ select.form-control {
 }
 
 /* ══════════════════════════════════════
+   PDF CAPTURE MODE — PROFESSIONAL PRINT
+   ══════════════════════════════════════ */
+.pdf-capture-mode {
+  width: 1500px !important;
+  max-width: none !important;
+  box-sizing: border-box !important;
+  padding: 1.25rem !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-family: 'Helvetica Neue', Arial, sans-serif !important;
+}
+
+.pdf-capture-mode table.timetable-grid {
+  border-spacing: 4px !important;
+  width: 100% !important;
+  table-layout: fixed !important;
+}
+
+.pdf-capture-mode th {
+  font-size: 0.8rem !important;
+  font-weight: 900 !important;
+  background: #1e293b !important;
+  color: #f1f5f9 !important;
+  border: none !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.07em !important;
+  padding: 0.7rem 0.5rem !important;
+  border-radius: 6px !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.pdf-capture-mode th.period-header {
+  background: #0f172a !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.pdf-capture-mode .timetable-cell {
+  border: 2px solid rgba(0, 0, 0, 0.25) !important;
+  font-weight: 800 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  padding: 0.5rem 0.75rem !important;
+  height: 68px !important;
+  min-height: 68px !important;
+  border-radius: 8px !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.pdf-capture-mode .timetable-cell.empty {
+  background: #f8fafc !important;
+  border: 2px dashed #cbd5e1 !important;
+  color: #94a3b8 !important;
+}
+
+.pdf-capture-mode .cell-subject {
+  font-size: 0.88rem !important;
+  font-weight: 900 !important;
+  line-height: 1.2 !important;
+  letter-spacing: -0.01em !important;
+}
+
+.pdf-capture-mode .cell-teacher {
+  font-size: 0.72rem !important;
+  font-weight: 800 !important;
+  opacity: 0.9 !important;
+}
+
+.pdf-capture-mode .cell-code {
+  display: none !important;
+}
+
+.pdf-capture-mode .period-label-col {
+  background: linear-gradient(160deg, #f1f5f9, #e2e8f0) !important;
+  border: none !important;
+  border-left: 4px solid #4f46e5 !important;
+  border-radius: 6px !important;
+  min-height: 68px !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.pdf-capture-mode .period-name {
+  font-size: 0.8rem !important;
+  font-weight: 900 !important;
+  color: #0f172a !important;
+}
+
+.pdf-capture-mode .period-time-row {
+  font-size: 0.68rem !important;
+  font-weight: 800 !important;
+  color: #4f46e5 !important;
+}
+
+.pdf-capture-mode .timetable-cell.break-cell,
+.pdf-capture-mode .timetable-cell.lunch-cell,
+.pdf-capture-mode .timetable-cell.assembly-cell {
+  border-width: 2px !important;
+  font-weight: 900 !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+.pdf-capture-mode .parallel-group-wrapper {
+  min-height: 64px !important;
+}
+
+.pdf-capture-mode .parallel-group-item {
+  padding: 0.3rem 0.5rem !important;
+  border-radius: 5px !important;
+  -webkit-print-color-adjust: exact !important;
+  print-color-adjust: exact !important;
+}
+
+/* ══════════════════════════════════════
    UTILITIES
 ══════════════════════════════════════ */
 .text-primary   { color: var(--text-primary) !important; }
@@ -1250,89 +1398,5 @@ select.form-control {
   background-clip: text;
 }
 
-/* ══════════════════════════════════════
-   PDF CAPTURE MODE — HIGH-CONTRAST BOLD
-   ══════════════════════════════════════ */
-.pdf-capture-mode {
-  width: 1450px !important;
-  max-width: none !important;
-  box-sizing: border-box !important;
-  padding: 1.5rem !important;
-  background: #ffffff !important;
-  color: #000000 !important;
-  font-family: 'Helvetica Neue', Arial, sans-serif !important;
-}
 
-.pdf-capture-mode table.timetable-grid {
-  border-spacing: 5px !important;
-  width: 100% !important;
-}
 
-.pdf-capture-mode th {
-  font-size: 0.85rem !important;
-  font-weight: 900 !important;
-  color: #0f172a !important;
-  background: #e2e8f0 !important;
-  border: 2px solid #94a3b8 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.05em !important;
-  padding: 0.75rem 0.5rem !important;
-}
-
-.pdf-capture-mode .timetable-cell {
-  border: 2px solid rgba(0, 0, 0, 0.4) !important;
-  font-weight: 800 !important;
-  box-shadow: none !important;
-  transform: none !important;
-  padding: 0.625rem !important;
-}
-
-.pdf-capture-mode .timetable-cell.empty {
-  background: #ffffff !important;
-  border: 2px dashed #cbd5e1 !important;
-  color: #94a3b8 !important;
-}
-
-.pdf-capture-mode .cell-subject {
-  font-size: 0.95rem !important;
-  font-weight: 900 !important;
-  color: #000000 !important;
-  letter-spacing: -0.01em !important;
-  margin-bottom: 4px !important;
-}
-
-.pdf-capture-mode .cell-teacher {
-  font-size: 0.775rem !important;
-  font-weight: 800 !important;
-  color: #1e293b !important;
-  opacity: 0.95 !important;
-}
-
-.pdf-capture-mode .period-label-col {
-  background: #f1f5f9 !important;
-  border: 2px solid #cbd5e1 !important;
-}
-
-.pdf-capture-mode .period-name {
-  font-size: 0.85rem !important;
-  font-weight: 900 !important;
-  color: #0f172a !important;
-}
-
-.pdf-capture-mode .period-time-row {
-  font-size: 0.72rem !important;
-  font-weight: 800 !important;
-  color: #475569 !important;
-}
-
-.pdf-capture-mode .timetable-cell.break-cell,
-.pdf-capture-mode .timetable-cell.lunch-cell,
-.pdf-capture-mode .timetable-cell.assembly-cell {
-  border-width: 2px !important;
-  border-color: rgba(0, 0, 0, 0.4) !important;
-  font-weight: 900 !important;
-}
-
-.pdf-capture-mode .parallel-group-item {
-  padding: 0.35rem 0.5rem !important;
-}

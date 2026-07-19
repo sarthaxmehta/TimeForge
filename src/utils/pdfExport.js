@@ -28,12 +28,13 @@ export async function exportToPDF(elementId, opts = {}) {
   element.classList.add('pdf-capture-mode');
 
   const canvas = await html2canvas(element, {
-    scale: 2.5,
+    scale: 3.0,
     useCORS: true,
     backgroundColor: '#ffffff',
     logging: false,
     scrollX: 0,
     scrollY: 0,
+    allowTaint: true,
   });
 
   element.classList.remove('pdf-capture-mode');
@@ -42,25 +43,25 @@ export async function exportToPDF(elementId, opts = {}) {
   const imgW = canvas.width;
   const imgH = canvas.height;
 
-  const isLandscape = imgW > imgH;
+  // Always use landscape A4 for timetables — better readability
   const pdf = new jsPDF({
-    orientation: isLandscape ? 'landscape' : 'portrait',
+    orientation: 'landscape',
     unit: 'mm',
     format: 'a4',
   });
 
   const pageW = pdf.internal.pageSize.getWidth();
   const pageH = pdf.internal.pageSize.getHeight();
-  const margin = 12;
+  const margin = 10;
   const centerX = pageW / 2;
 
   // ── GRAND EUR CENTER-ORIENTED HEADER ──
   pdf.setTextColor(15, 23, 42); // slate-900
   pdf.setFont('helvetica', 'bold');
   pdf.setFontSize(16.5);
-  pdf.text((institutionName || 'TimeForge Academy').toUpperCase(), centerX, 11, { align: 'center' });
+  pdf.text((institutionName || 'TimeForge Academy').toUpperCase(), centerX, 10, { align: 'center' });
 
-  let currentY = 15.5;
+  let currentY = 14;
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(8.5);
   pdf.setTextColor(71, 85, 105); // slate-600
@@ -69,12 +70,12 @@ export async function exportToPDF(elementId, opts = {}) {
     pdf.setFont('helvetica', 'bold');
     pdf.text(`Affiliation: ${affiliation}`, centerX, currentY, { align: 'center' });
     pdf.setFont('helvetica', 'normal');
-    currentY += 4;
+    currentY += 3.8;
   }
 
   if (address) {
     pdf.text(address, centerX, currentY, { align: 'center' });
-    currentY += 4;
+    currentY += 3.8;
   }
 
   const contactInfo = [
@@ -85,7 +86,7 @@ export async function exportToPDF(elementId, opts = {}) {
 
   if (contactInfo) {
     pdf.text(contactInfo, centerX, currentY, { align: 'center' });
-    currentY += 4;
+    currentY += 3.8;
   }
 
   // Class/Timetable Title
@@ -105,31 +106,35 @@ export async function exportToPDF(elementId, opts = {}) {
     semester && `Semester: ${semester}`,
     principalName && `Principal: ${principalName}`
   ].filter(Boolean).join('   |   ');
-  pdf.text(termDetails, centerX, currentY, { align: 'center' });
-  currentY += 4;
+  if (termDetails) {
+    pdf.text(termDetails, centerX, currentY, { align: 'center' });
+    currentY += 4;
+  }
 
   const dateStr = `Exported: ${new Date().toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}`;
   pdf.setFont('helvetica', 'normal');
   pdf.setFontSize(8);
   pdf.text(dateStr, centerX, currentY, { align: 'center' });
-  currentY += 4.5;
+  currentY += 4;
 
   // Elegance Double Divider Line
-  const dividerY = currentY + 0.5;
+  const dividerY = currentY + 0.25;
   pdf.setDrawColor(15, 23, 42); // slate-900
   pdf.setLineWidth(0.6);
   pdf.line(margin, dividerY, pageW - margin, dividerY);
 
   pdf.setDrawColor(79, 70, 229); // brand Accent
   pdf.setLineWidth(0.4);
-  pdf.line(margin, dividerY + 1.2, pageW - margin, dividerY + 1.2);
+  pdf.line(margin, dividerY + 1.1, pageW - margin, dividerY + 1.1);
 
   // Content start position
-  const contentY = dividerY + 4;
+  const contentY = dividerY + 3.5;
   const availW = pageW - margin * 2;
   const maxH = pageH - contentY - margin - 8;
 
-  const finalScale = Math.min(availW / (canvas.width / 3.7795), maxH / (canvas.height / 3.7795));
+  const scaleX = availW / (canvas.width / 3.7795);
+  const scaleY = maxH / (canvas.height / 3.7795);
+  const finalScale = Math.min(scaleX, scaleY);
   const finalW = (canvas.width / 3.7795) * finalScale;
   const finalH = (canvas.height / 3.7795) * finalScale;
 

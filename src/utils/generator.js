@@ -1,7 +1,8 @@
 /**
- * TimeForge — Timetable Generator v3
- * Uses new per-period config (settings.periods array)
- * Break / assembly / lunch / free types are never scheduled
+ * TimeForge — Timetable Generator v4
+ * Smart multi-pass constraint-satisfaction scheduler.
+ * Uses per-period config (settings.periods array).
+ * Break / assembly / lunch / free types are never scheduled.
  */
 
 export const DAY_NAMES = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'];
@@ -10,9 +11,6 @@ export const DAY_SHORT = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
 /** Period types that are NOT schedulable */
 const NON_CLASS_TYPES = new Set(['break','lunch','assembly','free']);
 
-/**
- * Get the indexes of schedulable periods from the periods array
- */
 export function getSchedulableIndexes(periods) {
   return periods
     .map((p, i) => ({ p, i }))
@@ -20,17 +18,11 @@ export function getSchedulableIndexes(periods) {
     .map(({ i }) => i);
 }
 
-/**
- * Format a period's time range nicely
- */
 export function formatPeriodTime(period) {
   if (!period?.startTime || !period?.endTime) return '';
   return `${period.startTime} – ${period.endTime}`;
 }
 
-/**
- * Get period display label (name + time)
- */
 export function getPeriodLabel(period, showTime = true) {
   if (!period) return '';
   const name = period.name || `Period`;
@@ -38,215 +30,251 @@ export function getPeriodLabel(period, showTime = true) {
   return time ? `${name}\n${time}` : name;
 }
 
+function shuffle(arr) {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 /**
  * Main generator — produces conflict-free schedules
- *
- * @returns {{ classTimetables, teacherTimetables }}
- *   classTimetables:   { classId → { dayIdx → { periodIdx → subjectId | null } } }
- *   teacherTimetables: { teacherId → { dayIdx → { periodIdx → { subjectId, classId } | null } } }
+ * Uses a smarter priority-sorted multi-pass algorithm to minimise free periods.
  */
 export function generateTimetable(classes, subjects, teachers, settings) {
   const { workingDays, periods = [] } = settings;
-  const numDays = workingDays.length;
+  const numDays  = workingDays.length;
   const numPeriods = periods.length;
-
   const schedulableIdxs = getSchedulableIndexes(periods);
 
   /* ── Init class timetables ── */
   const classTimetables = {};
   classes.forEach((c) => {
     classTimetables[c.id] = {};
-    workingDays.forEach((_, di) => {
+    for (let di = 0; di < numDays; di++) {
       classTimetables[c.id][di] = {};
       for (let p = 0; p < numPeriods; p++) {
         const pt = periods[p]?.type || 'class';
         classTimetables[c.id][di][p] = NON_CLASS_TYPES.has(pt) ? `__${pt}__` : null;
       }
-    });
+    }
   });
 
   /* ── Init teacher timetables ── */
   const teacherTimetables = {};
   teachers.forEach((t) => {
     teacherTimetables[t.id] = {};
-    workingDays.forEach((_, di) => {
+    for (let di = 0; di < numDays; di++) {
       teacherTimetables[t.id][di] = {};
       for (let p = 0; p < numPeriods; p++) {
         const pt = periods[p]?.type || 'class';
         teacherTimetables[t.id][di][p] = NON_CLASS_TYPES.has(pt) ? `__${pt}__` : null;
       }
-    });
+    }
   });
 
   /* ── Remaining periods per subject ── */
   const remaining = {};
-  subjects.forEach((s) => { remaining[s.id] = s.requiredPeriods || 0; });
+  subjects.forEach((s) => { remaining[s.id] = Number(s.requiredPeriods) || 0; });
 
-  /* ── Teacher period count (for max check) ── */
+  /* ── Teacher cumulative count ── */
   const teacherCount = {};
   teachers.forEach((t) => { teacherCount[t.id] = 0; });
 
-  /* ── Assign ── */
-  for (let di = 0; di < numDays; di++) {
+  /* ── Teacher max periods lookup ── */
+  const teacherMax = {};
+  teachers.forEach((t) => { teacherMax[t.id] = Number(t.maxPeriods) || Infinity; });
+
+  /* ── Helper: is teacher free at (di, p)? ── */
+  const isTeacherFree = (tid, di, p) => {
+    if (!tid) return false;
+    const slot = teacherTimetables[tid]?.[di]?.[p];
+    return slot === null;
+  };
+
+  /* ── Helper: is class free at (di, p)? ── */
+  const isClassFree = (cid, di, p) => {
+    return classTimetables[cid]?.[di]?.[p] === null;
+  };
+
+  /* ── Helper: how many times has a subject been scheduled today? ── */
+  const countSubjectToday = (sid, cid, di) => {
+    let count = 0;
     for (const p of schedulableIdxs) {
-      const busyTeachers = new Set();
+      if (classTimetables[cid][di][p] === sid) count++;
+    }
+    return count;
+  };
 
-      // Pass 1: Handle class teacher assigning if option is enabled and it is the first schedulable period
-      const isFirstPeriod = (p === schedulableIdxs[0]);
-      if (isFirstPeriod && settings.assignFirstPeriodToClassTeacher) {
-        for (const cls of classes) {
-          if (!cls.classTeacherId) continue;
-
-          // 1. Find if class teacher teaches a subject here
-          const ctSubject = subjects.find(
-            (s) => s.classId === cls.id && s.teacherId === cls.classTeacherId && remaining[s.id] > 0
-          );
-
-          if (ctSubject) {
-            const teacher = teachers.find((t) => t.id === cls.classTeacherId);
-            const maxP = teacher ? teacher.maxPeriods : Infinity;
-            if (!busyTeachers.has(cls.classTeacherId) && teacherCount[cls.classTeacherId] < maxP) {
-              classTimetables[cls.id][di][p] = ctSubject.id;
-              teacherTimetables[cls.classTeacherId][di][p] = { subjectId: ctSubject.id, classId: cls.id };
-              remaining[ctSubject.id]--;
-              busyTeachers.add(cls.classTeacherId);
-              teacherCount[cls.classTeacherId]++;
-            }
-          }
-        }
+  /* ── Build combined group registry ── */
+  const combinedGroupsMap = {};
+  subjects.forEach((s) => {
+    if (s.combinedGroupId) {
+      if (!combinedGroupsMap[s.combinedGroupId]) {
+        combinedGroupsMap[s.combinedGroupId] = [];
       }
+      combinedGroupsMap[s.combinedGroupId].push(s);
+    }
+  });
 
-      // Pass 2: Fill rest of the schedule normally
-      const shuffledClasses = [...classes].sort(() => Math.random() - 0.5);
+  /* ── Deduplicated groups list (only one representative per group per iteration) ── */
+  const processedGroups = new Set();
 
-      for (const cls of shuffledClasses) {
-        if (classTimetables[cls.id][di][p] !== null) continue;
+  /* ═══════════════════════════════════════════════
+     PASS 1: Combined Group subjects — schedule all
+     group members at the same (di, p) slot
+   ═══════════════════════════════════════════════ */
+  for (const [groupId, groupSubs] of Object.entries(combinedGroupsMap)) {
+    const totalNeeded = groupSubs[0] ? (Number(groupSubs[0].requiredPeriods) || 0) : 0;
+    let scheduled = 0;
 
-        const classSubjects = subjects.filter(
-          (s) => s.classId === cls.id && remaining[s.id] > 0
+    // Build candidate slots: all (di, p) combinations
+    const slots = [];
+    for (let di = 0; di < numDays; di++) {
+      for (const p of schedulableIdxs) {
+        slots.push([di, p]);
+      }
+    }
+    shuffle(slots);
+
+    for (const [di, p] of slots) {
+      if (scheduled >= totalNeeded) break;
+      if (groupSubs.every(gs => remaining[gs.id] <= 0)) break;
+
+      // All teachers free and within limits?
+      const allTeachersFree = groupSubs.every(gs => {
+        if (!gs.teacherId) return false;
+        return isTeacherFree(gs.teacherId, di, p) &&
+               teacherCount[gs.teacherId] < teacherMax[gs.teacherId];
+      });
+      if (!allTeachersFree) continue;
+
+      // All class slots free?
+      const allClassesFree = groupSubs.every(gs => isClassFree(gs.classId, di, p));
+      if (!allClassesFree) continue;
+
+      // No teacher teaching same subject twice today (unless needed)
+      const noRepeat = groupSubs.every(gs => countSubjectToday(gs.id, gs.classId, di) === 0);
+      if (!noRepeat && scheduled < totalNeeded - 1) continue;
+
+      // Schedule
+      for (const gs of groupSubs) {
+        classTimetables[gs.classId][di][p] = `__group__:${groupId}`;
+        teacherTimetables[gs.teacherId][di][p] = {
+          subjectId: gs.id,
+          classId: gs.classId,
+          combinedGroupId: groupId
+        };
+        remaining[gs.id]--;
+        teacherCount[gs.teacherId]++;
+      }
+      scheduled++;
+    }
+  }
+
+  /* ═══════════════════════════════════════════════
+     PASS 2: Class teacher first-period subjects
+   ═══════════════════════════════════════════════ */
+  if (settings.assignFirstPeriodToClassTeacher) {
+    for (let di = 0; di < numDays; di++) {
+      const p = schedulableIdxs[0];
+      for (const cls of classes) {
+        if (!cls.classTeacherId) continue;
+        if (!isClassFree(cls.id, di, p)) continue;
+        if (!isTeacherFree(cls.classTeacherId, di, p)) continue;
+        if (teacherCount[cls.classTeacherId] >= teacherMax[cls.classTeacherId]) continue;
+
+        const ctSubject = subjects.find(
+          (s) => s.classId === cls.id &&
+                 s.teacherId === cls.classTeacherId &&
+                 remaining[s.id] > 0 &&
+                 !s.combinedGroupId
         );
+        if (!ctSubject) continue;
 
-        classSubjects.sort((a, b) => {
-          let sa = remaining[a.id];
-          let sb = remaining[b.id];
-          // Penalise same-subject repeat today
-          for (const pp of schedulableIdxs) {
-            if (pp >= p) break;
-            if (classTimetables[cls.id][di][pp] === a.id) sa -= 8;
-            if (classTimetables[cls.id][di][pp] === b.id) sb -= 8;
-          }
-          return sb - sa;
-        });
+        classTimetables[cls.id][di][p] = ctSubject.id;
+        teacherTimetables[cls.classTeacherId][di][p] = { subjectId: ctSubject.id, classId: cls.id };
+        remaining[ctSubject.id]--;
+        teacherCount[cls.classTeacherId]++;
+      }
+    }
+  }
+
+  /* ═══════════════════════════════════════════════
+     PASS 3: Normal subjects — greedy multi-pass
+     with priority ordering and daily distribution
+   ═══════════════════════════════════════════════ */
+
+  // We do multiple passes so subjects that couldn't be placed initially get retried
+  const MAX_PASSES = 4;
+
+  for (let pass = 0; pass < MAX_PASSES; pass++) {
+    // Build all (di, p) slots in interleaved order for fair distribution
+    const allSlots = [];
+    for (const p of schedulableIdxs) {
+      const dayOrder = shuffle(Array.from({ length: numDays }, (_, i) => i));
+      for (const di of dayOrder) {
+        allSlots.push([di, p]);
+      }
+    }
+
+    for (const [di, p] of allSlots) {
+      // Sort classes by how urgently they need more periods scheduled
+      const sortedClasses = classes
+        .map(cls => {
+          const unscheduledTotal = subjects
+            .filter(s => s.classId === cls.id && !s.combinedGroupId && remaining[s.id] > 0)
+            .reduce((sum, s) => sum + remaining[s.id], 0);
+          return { cls, unscheduledTotal };
+        })
+        .sort((a, b) => b.unscheduledTotal - a.unscheduledTotal)
+        .map(x => x.cls);
+
+      for (const cls of sortedClasses) {
+        if (!isClassFree(cls.id, di, p)) continue;
+
+        const classSubjects = subjects
+          .filter(s =>
+            s.classId === cls.id &&
+            !s.combinedGroupId &&
+            remaining[s.id] > 0
+          )
+          .map(s => {
+            const todayCount = countSubjectToday(s.id, cls.id, di);
+            const urgency = remaining[s.id];
+            // Penalise repeat of same subject on same day
+            const score = urgency * 10 - todayCount * 30;
+            return { s, score };
+          })
+          .filter(x => x.score > -100)
+          .sort((a, b) => b.score - a.score)
+          .map(x => x.s);
 
         for (const subj of classSubjects) {
-          const teacher = teachers.find((t) => t.id === subj.teacherId);
-          const maxP = teacher ? teacher.maxPeriods : Infinity;
+          if (!subj.teacherId) continue;
+          if (!isTeacherFree(subj.teacherId, di, p)) continue;
+          if (teacherCount[subj.teacherId] >= teacherMax[subj.teacherId]) continue;
 
-          if (teacherCount[subj.teacherId] < maxP) {
-            // Check if this subject is in a combined simultaneous group
-            if (subj.combinedGroupId) {
-              const groupSubs = subjects.filter((s) => s.combinedGroupId === subj.combinedGroupId);
-              let groupEligible = true;
+          // Enforce: same subject maximum twice per day
+          if (countSubjectToday(subj.id, cls.id, di) >= 2) continue;
 
-              for (const gs of groupSubs) {
-                // Ensure the teacher is not busy with another subject outside this group
-                if (busyTeachers.has(gs.teacherId)) {
-                  const scheduledObj = teacherTimetables[gs.teacherId]?.[di]?.[p];
-                  if (scheduledObj) {
-                    const targetSubId = scheduledObj.subjectId || (typeof scheduledObj === 'string' ? scheduledObj : null);
-                    const targetSub = subjects.find(s => s.id === targetSubId);
-                    if (!targetSub || targetSub.combinedGroupId !== subj.combinedGroupId) {
-                      groupEligible = false;
-                      break;
-                    }
-                  } else {
-                    groupEligible = false;
-                    break;
-                  }
-                }
-
-                // Check maxPeriods limit for this teacher
-                const gsTeacher = teachers.find(t => t.id === gs.teacherId);
-                if (gsTeacher) {
-                  const existingLoad = teacherCount[gs.teacherId] || 0;
-                  if (existingLoad >= gsTeacher.maxPeriods) {
-                    groupEligible = false;
-                    break;
-                  }
-                }
-
-                // Check class cell availability
-                const clsCell = classTimetables[gs.classId]?.[di]?.[p];
-                if (clsCell !== null) {
-                  // If it has a group scheduled, it must be the exact same group
-                  if (clsCell !== `__group__:${subj.combinedGroupId}`) {
-                    groupEligible = false;
-                    break;
-                  }
-                }
-              }
-
-              if (groupEligible) {
-                // Schedule the entire group together
-                for (const gs of groupSubs) {
-                  classTimetables[gs.classId][di][p] = `__group__:${subj.combinedGroupId}`;
-                  remaining[gs.id]--;
-
-                  const existing = teacherTimetables[gs.teacherId]?.[di]?.[p];
-                  if (existing && typeof existing === 'object' && existing.combinedGroupId === subj.combinedGroupId) {
-                    if (!existing.classes.includes(gs.classId)) {
-                      existing.classes.push(gs.classId);
-                    }
-                  } else {
-                    teacherTimetables[gs.teacherId][di][p] = { 
-                      subjectId: gs.id, 
-                      classId: gs.classId, 
-                      classes: [gs.classId],
-                      combinedGroupId: subj.combinedGroupId
-                    };
-                    busyTeachers.add(gs.teacherId);
-                    teacherCount[gs.teacherId]++;
-                  }
-                }
-                break;
-              }
-            } else if (subj.mergedWithSubjectId) {
-              // Merged subject (fallback)
-              if (!busyTeachers.has(subj.teacherId)) {
-                const partnerSub = subjects.find((s) => s.id === subj.mergedWithSubjectId);
-                if (partnerSub && remaining[partnerSub.id] > 0) {
-                  const partnerClassId = partnerSub.classId;
-                  if (classTimetables[partnerClassId][di][p] === null) {
-                    classTimetables[cls.id][di][p] = subj.id;
-                    classTimetables[partnerClassId][di][p] = partnerSub.id;
-                    teacherTimetables[subj.teacherId][di][p] = { 
-                      subjectId: subj.id, 
-                      classId: cls.id, 
-                      mergedWithClassId: partnerClassId 
-                    };
-                    remaining[subj.id]--;
-                    remaining[partnerSub.id]--;
-                    busyTeachers.add(subj.teacherId);
-                    teacherCount[subj.teacherId]++;
-                    break;
-                  }
-                }
-              }
-            } else {
-              // Normal scheduling
-              if (!busyTeachers.has(subj.teacherId)) {
-                classTimetables[cls.id][di][p]   = subj.id;
-                teacherTimetables[subj.teacherId][di][p] = { subjectId: subj.id, classId: cls.id };
-                remaining[subj.id]--;
-                busyTeachers.add(subj.teacherId);
-                teacherCount[subj.teacherId]++;
-                break;
-              }
-            }
-          }
+          // Schedule it
+          classTimetables[cls.id][di][p] = subj.id;
+          teacherTimetables[subj.teacherId][di][p] = { subjectId: subj.id, classId: cls.id };
+          remaining[subj.id]--;
+          teacherCount[subj.teacherId]++;
+          break;
         }
       }
     }
+
+    // If all subjects fully placed, stop early
+    const allDone = subjects
+      .filter(s => !s.combinedGroupId)
+      .every(s => remaining[s.id] <= 0);
+    if (allDone) break;
   }
 
   return { classTimetables, teacherTimetables };
