@@ -128,6 +128,409 @@ const DEFAULT_SETTINGS = {
   tableLayout: 'comfortable', // 'compact' | 'comfortable' | 'spacious'
 };
 
+const INITIAL_TEACHERS = [
+  {
+    id: "t1",
+    name: "Mr. Robert Chen",
+    employeeId: "EMP001",
+    email: "robert.c@timeforge.edu",
+    phone: "",
+    department: "Science",
+    departmentId: "",
+    specialization: "Physics",
+    qualification: "M.Sc. Physics",
+    joiningDate: "",
+    maxPeriods: 25,
+    color: "#3b82f6",
+    unavailableSlots: [],
+    notes: ""
+  },
+  {
+    id: "t2",
+    name: "Ms. Emily Parker",
+    employeeId: "EMP002",
+    email: "emily.p@timeforge.edu",
+    phone: "",
+    department: "Mathematics",
+    departmentId: "",
+    specialization: "Calculus",
+    qualification: "M.Sc. Mathematics",
+    joiningDate: "",
+    maxPeriods: 28,
+    color: "#ec4899",
+    unavailableSlots: [],
+    notes: ""
+  },
+  {
+    id: "t3",
+    name: "Dr. Alan Turing",
+    employeeId: "EMP003",
+    email: "alan.t@timeforge.edu",
+    phone: "",
+    department: "Computer Science",
+    departmentId: "",
+    specialization: "Computer Science",
+    qualification: "Ph.D. CS",
+    joiningDate: "",
+    maxPeriods: 24,
+    color: "#14b8a6",
+    unavailableSlots: [],
+    notes: ""
+  },
+  {
+    id: "t4",
+    name: "Mrs. Anita Desai",
+    employeeId: "EMP004",
+    email: "anita.d@timeforge.edu",
+    phone: "",
+    department: "English",
+    departmentId: "",
+    specialization: "Literature",
+    qualification: "M.A. English",
+    joiningDate: "",
+    maxPeriods: 26,
+    color: "#8b5cf6",
+    unavailableSlots: [],
+    notes: ""
+  },
+  {
+    id: "t5",
+    name: "Mr. Rajiv Sharma",
+    employeeId: "EMP005",
+    email: "rajiv.s@timeforge.edu",
+    phone: "",
+    department: "Commerce",
+    departmentId: "",
+    specialization: "Accountancy",
+    qualification: "M.Com, CA",
+    joiningDate: "",
+    maxPeriods: 25,
+    color: "#f59e0b",
+    unavailableSlots: [],
+    notes: ""
+  },
+  {
+    id: "t6",
+    name: "Ms. Priya Singh",
+    employeeId: "EMP006",
+    email: "priya.s@timeforge.edu",
+    phone: "",
+    department: "Science",
+    departmentId: "",
+    specialization: "Chemistry",
+    qualification: "M.Sc. Chemistry",
+    joiningDate: "",
+    maxPeriods: 25,
+    color: "#06b6d4",
+    unavailableSlots: [],
+    notes: ""
+  },
+  {
+    id: "t7",
+    name: "Mr. David Lee",
+    employeeId: "EMP007",
+    email: "david.l@timeforge.edu",
+    phone: "",
+    department: "Physical Education",
+    departmentId: "",
+    specialization: "Sports",
+    qualification: "B.P.Ed",
+    joiningDate: "",
+    maxPeriods: 20,
+    color: "#22c55e",
+    unavailableSlots: [],
+    notes: ""
+  },
+  {
+    id: "t8",
+    name: "Mrs. Kavita Patel",
+    employeeId: "EMP008",
+    email: "kavita.p@timeforge.edu",
+    phone: "",
+    department: "Commerce",
+    departmentId: "",
+    specialization: "Business Studies",
+    qualification: "MBA",
+    joiningDate: "",
+    maxPeriods: 26,
+    color: "#d946ef",
+    unavailableSlots: [],
+    notes: ""
+  }
+];
+
+const INITIAL_CLASSES = [
+  {
+    id: "c1",
+    name: "11",
+    section: "A",
+    roomNo: "101",
+    strength: "40",
+    grade: "11",
+    stream: "Science",
+    classTeacherId: "t1",
+    notes: ""
+  },
+  {
+    id: "c2",
+    name: "11",
+    section: "B",
+    roomNo: "102",
+    strength: "38",
+    grade: "11",
+    stream: "Science",
+    classTeacherId: "t2",
+    notes: ""
+  },
+  {
+    id: "c3",
+    name: "11",
+    section: "C",
+    roomNo: "201",
+    strength: "45",
+    grade: "11",
+    stream: "Commerce",
+    classTeacherId: "t5",
+    notes: ""
+  }
+];
+
+const INITIAL_SUBJECTS = [
+  {
+    id: "s1_c1",
+    name: "Physics",
+    code: "PHY",
+    classId: "c1",
+    teacherId: "t1",
+    requiredPeriods: 6,
+    isElective: false,
+    roomOverride: "",
+    color: "#3b82f6",
+    notes: ""
+  },
+  {
+    id: "s2_c1",
+    name: "Mathematics",
+    code: "MATH",
+    classId: "c1",
+    teacherId: "t2",
+    requiredPeriods: 7,
+    isElective: false,
+    roomOverride: "",
+    color: "#ec4899",
+    notes: ""
+  },
+  {
+    id: "s3_c1",
+    name: "Computer Science",
+    code: "CS",
+    classId: "c1",
+    teacherId: "t3",
+    requiredPeriods: 5,
+    isElective: true,
+    roomOverride: "Lab 1",
+    color: "#14b8a6",
+    notes: ""
+  },
+  {
+    id: "s4_c1",
+    name: "English",
+    code: "ENG",
+    classId: "c1",
+    teacherId: "t4",
+    requiredPeriods: 5,
+    isElective: false,
+    roomOverride: "",
+    color: "#8b5cf6",
+    notes: ""
+  },
+  {
+    id: "s5_c1",
+    name: "Chemistry",
+    code: "CHEM",
+    classId: "c1",
+    teacherId: "t6",
+    requiredPeriods: 6,
+    isElective: false,
+    roomOverride: "",
+    color: "#06b6d4",
+    notes: ""
+  },
+  {
+    id: "s6_c1",
+    name: "Physical Education",
+    code: "PE",
+    classId: "c1",
+    teacherId: "t7",
+    requiredPeriods: 2,
+    isElective: false,
+    roomOverride: "Ground",
+    color: "#22c55e",
+    notes: ""
+  },
+  {
+    id: "s1_c2",
+    name: "Physics",
+    code: "PHY",
+    classId: "c2",
+    teacherId: "t1",
+    requiredPeriods: 6,
+    isElective: false,
+    roomOverride: "",
+    color: "#3b82f6",
+    notes: ""
+  },
+  {
+    id: "s2_c2",
+    name: "Mathematics",
+    code: "MATH",
+    classId: "c2",
+    teacherId: "t2",
+    requiredPeriods: 7,
+    isElective: false,
+    roomOverride: "",
+    color: "#ec4899",
+    notes: ""
+  },
+  {
+    id: "s3_c2",
+    name: "Computer Science",
+    code: "CS",
+    classId: "c2",
+    teacherId: "t3",
+    requiredPeriods: 5,
+    isElective: true,
+    roomOverride: "Lab 2",
+    color: "#14b8a6",
+    notes: ""
+  },
+  {
+    id: "s4_c2",
+    name: "English",
+    code: "ENG",
+    classId: "c2",
+    teacherId: "t4",
+    requiredPeriods: 5,
+    isElective: false,
+    roomOverride: "",
+    color: "#8b5cf6",
+    notes: ""
+  },
+  {
+    id: "s5_c2",
+    name: "Chemistry",
+    code: "CHEM",
+    classId: "c2",
+    teacherId: "t6",
+    requiredPeriods: 6,
+    isElective: false,
+    roomOverride: "",
+    color: "#06b6d4",
+    notes: ""
+  },
+  {
+    id: "s6_c2",
+    name: "Physical Education",
+    code: "PE",
+    classId: "c2",
+    teacherId: "t7",
+    requiredPeriods: 2,
+    isElective: false,
+    roomOverride: "Ground",
+    color: "#22c55e",
+    notes: ""
+  },
+  {
+    id: "s1_c3",
+    name: "Accountancy",
+    code: "ACC",
+    classId: "c3",
+    teacherId: "t5",
+    requiredPeriods: 7,
+    isElective: false,
+    roomOverride: "",
+    color: "#f59e0b",
+    notes: ""
+  },
+  {
+    id: "s2_c3",
+    name: "Business Studies",
+    code: "BST",
+    classId: "c3",
+    teacherId: "t8",
+    requiredPeriods: 6,
+    isElective: false,
+    roomOverride: "",
+    color: "#d946ef",
+    notes: ""
+  },
+  {
+    id: "s3_c3",
+    name: "Mathematics",
+    code: "MATH",
+    classId: "c3",
+    teacherId: "t2",
+    requiredPeriods: 6,
+    isElective: true,
+    roomOverride: "",
+    color: "#ec4899",
+    notes: ""
+  },
+  {
+    id: "s4_c3",
+    name: "English",
+    code: "ENG",
+    classId: "c3",
+    teacherId: "t4",
+    requiredPeriods: 5,
+    isElective: false,
+    roomOverride: "",
+    color: "#8b5cf6",
+    notes: ""
+  },
+  {
+    id: "s5_c3",
+    name: "Physical Education",
+    code: "PE",
+    classId: "c3",
+    teacherId: "t7",
+    requiredPeriods: 3,
+    isElective: false,
+    roomOverride: "Ground",
+    color: "#22c55e",
+    notes: ""
+  }
+];
+
+const INITIAL_TEMPLATES = [
+  {
+    id: "st1",
+    name: "Class 11 Science Standard",
+    stream: "Science",
+    subjects: [
+      { name: "Physics", code: "PHY", defaultPeriods: 6, isElective: false },
+      { name: "Chemistry", code: "CHEM", defaultPeriods: 6, isElective: false },
+      { name: "Mathematics", code: "MATH", defaultPeriods: 7, isElective: false },
+      { name: "English", code: "ENG", defaultPeriods: 5, isElective: false },
+      { name: "Computer Science", code: "CS", defaultPeriods: 5, isElective: true },
+      { name: "Physical Education", code: "PE", defaultPeriods: 2, isElective: false }
+    ]
+  },
+  {
+    id: "st2",
+    name: "Class 11 Commerce Standard",
+    stream: "Commerce",
+    subjects: [
+      { name: "Accountancy", code: "ACC", defaultPeriods: 7, isElective: false },
+      { name: "Business Studies", code: "BST", defaultPeriods: 6, isElective: false },
+      { name: "Economics", code: "ECO", defaultPeriods: 6, isElective: false },
+      { name: "English", code: "ENG", defaultPeriods: 5, isElective: false },
+      { name: "Mathematics", code: "MATH", defaultPeriods: 5, isElective: true },
+      { name: "Physical Education", code: "PE", defaultPeriods: 2, isElective: false }
+    ]
+  }
+];
+
 /* ─────────────────────────────────────────────────────────────
    STORE
    ───────────────────────────────────────────────────────────────*/
@@ -135,10 +538,10 @@ const useStore = create(
   persist(
     (set, get) => ({
       settings: DEFAULT_SETTINGS,
-      teachers: [],
-      classes: [],
-      subjects: [],
-      subjectTemplates: [],
+      teachers: INITIAL_TEACHERS,
+      classes: INITIAL_CLASSES,
+      subjects: INITIAL_SUBJECTS,
+      subjectTemplates: INITIAL_TEMPLATES,
       departments: [],        // { id, name, headId }
       timetables: {},
       absences: [],           // { id, date, teacherId }
