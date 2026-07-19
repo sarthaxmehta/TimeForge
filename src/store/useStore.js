@@ -546,6 +546,7 @@ const useStore = create(
       timetables: {},
       absences: [],           // { id, date, teacherId }
       substitutions: [],      // { id, date, periodIdx, classId, originalTeacherId, substituteTeacherId, subjectId }
+      combinedGroups: [],     // { id, name, requiredPeriods }
 
       /* ── Settings ── */
       updateSettings: (patch) =>
@@ -796,6 +797,59 @@ const useStore = create(
           absences: state.absences.filter((a) => a.date !== date),
         })),
 
+      /* ── Combined Period Groups ── */
+      addCombinedGroup: (group) =>
+        set((state) => ({
+          combinedGroups: [
+            ...state.combinedGroups,
+            { id: uuidv4(), name: 'Combined Group', requiredPeriods: 5, ...group },
+          ],
+        })),
+
+      removeCombinedGroup: (id) =>
+        set((state) => {
+          const updatedSubjects = state.subjects.map((s) =>
+            s.combinedGroupId === id ? { ...s, combinedGroupId: undefined } : s
+          );
+          return {
+            combinedGroups: state.combinedGroups.filter((g) => g.id !== id),
+            subjects: updatedSubjects,
+          };
+        }),
+
+      updateCombinedGroup: (id, patch) =>
+        set((state) => {
+          const updatedGroups = state.combinedGroups.map((g) =>
+            g.id === id ? { ...g, ...patch } : g
+          );
+          const group = updatedGroups.find((g) => g.id === id);
+          const updatedSubjects = state.subjects.map((s) =>
+            s.combinedGroupId === id ? { ...s, requiredPeriods: group.requiredPeriods } : s
+          );
+          return {
+            combinedGroups: updatedGroups,
+            subjects: updatedSubjects,
+          };
+        }),
+
+      assignSubjectToCombinedGroup: (subjectId, groupId) =>
+        set((state) => {
+          const group = state.combinedGroups.find((g) => g.id === groupId);
+          const periods = group ? group.requiredPeriods : 5;
+          return {
+            subjects: state.subjects.map((s) =>
+              s.id === subjectId ? { ...s, combinedGroupId: groupId, requiredPeriods: periods } : s
+            ),
+          };
+        }),
+
+      removeSubjectFromCombinedGroup: (subjectId) =>
+        set((state) => ({
+          subjects: state.subjects.map((s) =>
+            s.id === subjectId ? { ...s, combinedGroupId: undefined } : s
+          ),
+        })),
+
       /* ── Data Management ── */
       exportData: () => {
         const s = get();
@@ -809,6 +863,7 @@ const useStore = create(
           timetables: s.timetables,
           absences: s.absences,
           substitutions: s.substitutions,
+          combinedGroups: s.combinedGroups,
         }, null, 2);
       },
 
@@ -825,6 +880,7 @@ const useStore = create(
             timetables: data.timetables || {},
             absences: data.absences || [],
             substitutions: data.substitutions || [],
+            combinedGroups: data.combinedGroups || [],
           });
           return true;
         } catch { return false; }
@@ -840,6 +896,7 @@ const useStore = create(
           timetables: {},
           absences: [],
           substitutions: [],
+          combinedGroups: [],
         }),
 
       loadSampleData: () =>
@@ -856,9 +913,10 @@ const useStore = create(
           timetables: {},
           absences: [],
           substitutions: [],
+          combinedGroups: [],
         }),
     }),
-    { name: 'timeforge-storage-v5' } // Incremented the persist key to avoid loading old state versions incompatibly
+    { name: 'timeforge-storage-v6' } // Incremented the persist key to avoid loading old state versions incompatibly
   )
 );
 

@@ -149,36 +149,106 @@ export function generateTimetable(classes, subjects, teachers, settings) {
           const teacher = teachers.find((t) => t.id === subj.teacherId);
           const maxP = teacher ? teacher.maxPeriods : Infinity;
 
-          if (!busyTeachers.has(subj.teacherId) && teacherCount[subj.teacherId] < maxP) {
-            // Check if this is a merged/combined subject
-            if (subj.mergedWithSubjectId) {
-              const partnerSub = subjects.find((s) => s.id === subj.mergedWithSubjectId);
-              if (partnerSub && remaining[partnerSub.id] > 0) {
-                const partnerClassId = partnerSub.classId;
-                // Ensure partner class has no class scheduled at this period/day
-                if (classTimetables[partnerClassId][di][p] === null) {
-                  classTimetables[cls.id][di][p] = subj.id;
-                  classTimetables[partnerClassId][di][p] = partnerSub.id;
-                  teacherTimetables[subj.teacherId][di][p] = { 
-                    subjectId: subj.id, 
-                    classId: cls.id, 
-                    mergedWithClassId: partnerClassId 
-                  };
-                  remaining[subj.id]--;
-                  remaining[partnerSub.id]--;
-                  busyTeachers.add(subj.teacherId);
-                  teacherCount[subj.teacherId]++;
-                  break;
+          if (teacherCount[subj.teacherId] < maxP) {
+            // Check if this subject is in a combined simultaneous group
+            if (subj.combinedGroupId) {
+              const groupSubs = subjects.filter((s) => s.combinedGroupId === subj.combinedGroupId);
+              let groupEligible = true;
+
+              for (const gs of groupSubs) {
+                // Ensure the teacher is not busy with another subject outside this group
+                if (busyTeachers.has(gs.teacherId)) {
+                  const scheduledObj = teacherTimetables[gs.teacherId]?.[di]?.[p];
+                  if (scheduledObj) {
+                    const targetSubId = scheduledObj.subjectId || (typeof scheduledObj === 'string' ? scheduledObj : null);
+                    const targetSub = subjects.find(s => s.id === targetSubId);
+                    if (!targetSub || targetSub.combinedGroupId !== subj.combinedGroupId) {
+                      groupEligible = false;
+                      break;
+                    }
+                  } else {
+                    groupEligible = false;
+                    break;
+                  }
+                }
+
+                // Check maxPeriods limit for this teacher
+                const gsTeacher = teachers.find(t => t.id === gs.teacherId);
+                if (gsTeacher) {
+                  const existingLoad = teacherCount[gs.teacherId] || 0;
+                  if (existingLoad >= gsTeacher.maxPeriods) {
+                    groupEligible = false;
+                    break;
+                  }
+                }
+
+                // Check class cell availability
+                const clsCell = classTimetables[gs.classId]?.[di]?.[p];
+                if (clsCell !== null) {
+                  // If it has a group scheduled, it must be the exact same group
+                  if (clsCell !== `__group__:${subj.combinedGroupId}`) {
+                    groupEligible = false;
+                    break;
+                  }
+                }
+              }
+
+              if (groupEligible) {
+                // Schedule the entire group together
+                for (const gs of groupSubs) {
+                  classTimetables[gs.classId][di][p] = `__group__:${subj.combinedGroupId}`;
+                  remaining[gs.id]--;
+
+                  const existing = teacherTimetables[gs.teacherId]?.[di]?.[p];
+                  if (existing && typeof existing === 'object' && existing.combinedGroupId === subj.combinedGroupId) {
+                    if (!existing.classes.includes(gs.classId)) {
+                      existing.classes.push(gs.classId);
+                    }
+                  } else {
+                    teacherTimetables[gs.teacherId][di][p] = { 
+                      subjectId: gs.id, 
+                      classId: gs.classId, 
+                      classes: [gs.classId],
+                      combinedGroupId: subj.combinedGroupId
+                    };
+                    busyTeachers.add(gs.teacherId);
+                    teacherCount[gs.teacherId]++;
+                  }
+                }
+                break;
+              }
+            } else if (subj.mergedWithSubjectId) {
+              // Merged subject (fallback)
+              if (!busyTeachers.has(subj.teacherId)) {
+                const partnerSub = subjects.find((s) => s.id === subj.mergedWithSubjectId);
+                if (partnerSub && remaining[partnerSub.id] > 0) {
+                  const partnerClassId = partnerSub.classId;
+                  if (classTimetables[partnerClassId][di][p] === null) {
+                    classTimetables[cls.id][di][p] = subj.id;
+                    classTimetables[partnerClassId][di][p] = partnerSub.id;
+                    teacherTimetables[subj.teacherId][di][p] = { 
+                      subjectId: subj.id, 
+                      classId: cls.id, 
+                      mergedWithClassId: partnerClassId 
+                    };
+                    remaining[subj.id]--;
+                    remaining[partnerSub.id]--;
+                    busyTeachers.add(subj.teacherId);
+                    teacherCount[subj.teacherId]++;
+                    break;
+                  }
                 }
               }
             } else {
               // Normal scheduling
-              classTimetables[cls.id][di][p]   = subj.id;
-              teacherTimetables[subj.teacherId][di][p] = { subjectId: subj.id, classId: cls.id };
-              remaining[subj.id]--;
-              busyTeachers.add(subj.teacherId);
-              teacherCount[subj.teacherId]++;
-              break;
+              if (!busyTeachers.has(subj.teacherId)) {
+                classTimetables[cls.id][di][p]   = subj.id;
+                teacherTimetables[subj.teacherId][di][p] = { subjectId: subj.id, classId: cls.id };
+                remaining[subj.id]--;
+                busyTeachers.add(subj.teacherId);
+                teacherCount[subj.teacherId]++;
+                break;
+              }
             }
           }
         }

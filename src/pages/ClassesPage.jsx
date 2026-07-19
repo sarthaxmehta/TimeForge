@@ -193,9 +193,11 @@ export default function ClassesPage() {
     classes, addClass, addClassWithSections, updateClass, removeClass,
     subjects, addSubject, updateSubject, removeSubject, copySubjectsToClass,
     teachers, subjectTemplates,
+    combinedGroups = [], addCombinedGroup, removeCombinedGroup, updateCombinedGroup,
+    assignSubjectToCombinedGroup, removeSubjectFromCombinedGroup
   } = useStore();
 
-  const [activeTab, setActiveTab] = useState('overview');   // 'overview' | 'subjects'
+  const [activeTab, setActiveTab] = useState('overview');   // 'overview' | 'subjects' | 'groups'
   const [selectedClassId, setSelectedClassId] = useState(null);
   const [viewMode, setViewMode] = useState('grid');         // 'grid' | 'list'
 
@@ -213,6 +215,11 @@ export default function ClassesPage() {
   // Copy modal
   const [showCopyModal, setShowCopyModal] = useState(false);
   const [copyTargetId, setCopyTargetId]   = useState('');
+
+  // Combined Groups states
+  const [showGroupModal, setShowGroupModal] = useState(false);
+  const [editGroupId, setEditGroupId] = useState(null);
+  const [groupForm, setGroupForm] = useState({ name: '', requiredPeriods: 5 });
 
   // ── Class CRUD ──────────────────────────────────────────
   const openAddClass = () => {
@@ -287,6 +294,22 @@ export default function ClassesPage() {
     setShowSubjectCatalogueModal(false);
   };
 
+  const handleGroupSubmit = (e) => {
+    e.preventDefault();
+    if (!groupForm.name.trim()) return;
+
+    if (editGroupId) {
+      updateCombinedGroup(editGroupId, groupForm);
+      showToast('Combined group updated', 'success');
+    } else {
+      addCombinedGroup(groupForm);
+      showToast('Combined group created', 'success');
+    }
+    setShowGroupModal(false);
+    setGroupForm({ name: '', requiredPeriods: 5 });
+    setEditGroupId(null);
+  };
+
   const handleCopySubjects = () => {
     if (!copyTargetId || !selectedClassId) return;
     copySubjectsToClass(selectedClassId, copyTargetId);
@@ -347,6 +370,11 @@ export default function ClassesPage() {
               </button>
             </>
           )}
+          {activeTab === 'groups' && (
+            <button className="btn btn-primary" onClick={() => { setEditGroupId(null); setGroupForm({ name: '', requiredPeriods: 5 }); setShowGroupModal(true); }}>
+              <Plus size={16} /> Create Combined Group
+            </button>
+          )}
         </div>
       </div>
 
@@ -366,6 +394,17 @@ export default function ClassesPage() {
           {selectedClassId && (
             <span className="badge badge-primary" style={{ marginLeft: 6, padding: '0.1rem 0.5rem', fontSize: '0.7rem' }}>
               {activeClass?.name}{activeClass?.section ? ` – ${activeClass.section}` : ''}
+            </span>
+          )}
+        </button>
+        <button
+          className={`tab-btn ${activeTab === 'groups' ? 'active' : ''}`}
+          onClick={() => setActiveTab('groups')}
+        >
+          <Layers size={16} /> Combined/Parallel Groups
+          {combinedGroups.length > 0 && (
+            <span className="badge badge-primary" style={{ marginLeft: 6, padding: '0.1rem 0.5rem', fontSize: '0.7rem' }}>
+              {combinedGroups.length}
             </span>
           )}
         </button>
@@ -636,6 +675,20 @@ export default function ClassesPage() {
                                   display: 'inline-flex', alignItems: 'center', gap: '0.2rem'
                                 }}>
                                   🔗 Combined: {partnerCls.name}{partnerCls.section ? `-${partnerCls.section}` : ''}
+                                </span>
+                              );
+                            })()}
+                            {s.combinedGroupId && (() => {
+                              const group = combinedGroups.find(g => g.id === s.combinedGroupId);
+                              if (!group) return null;
+                              return (
+                                <span style={{
+                                  fontSize: '0.68rem', fontWeight: 700,
+                                  background: 'var(--color-primary-soft)', color: 'var(--color-primary)',
+                                  padding: '0.05rem 0.35rem', borderRadius: 'var(--radius-full)',
+                                  display: 'inline-flex', alignItems: 'center', gap: '0.2rem'
+                                }}>
+                                  👥 Group: {group.name}
                                 </span>
                               );
                             })()}
@@ -952,6 +1005,224 @@ export default function ClassesPage() {
           Delete <strong>{confirmDeleteClass?.name}{confirmDeleteClass?.section ? ` – ${confirmDeleteClass.section}` : ''}</strong>?
           All its subjects will also be removed. This cannot be undone.
         </p>
+      </Modal>
+
+      {/* ══════════ TAB: GROUPS ══════════ */}
+      {activeTab === 'groups' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem', marginTop: '1.5rem' }}>
+          {/* Info Card */}
+          <div className="card" style={{ background: 'var(--color-primary-soft)', border: '1px solid var(--color-primary-border)', padding: '1rem', borderRadius: 'var(--radius-lg)' }}>
+            <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'flex-start' }}>
+              <Zap size={20} color="var(--color-primary)" style={{ flexShrink: 0, marginTop: '2px' }} />
+              <div>
+                <h4 style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--color-primary)', marginBottom: '0.25rem' }}>
+                  What are Combined / Split Groups?
+                </h4>
+                <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+                  Use combined groups to schedule multiple subjects across one or more classes at the <strong>exact same period</strong>.
+                  For example, if Class 9-A and 9-B split their students between Physical Education (PE) and Vocational/NSQF subjects running in parallel with separate teachers, group these 4 subjects (9A PE, 9B PE, 9A NSQF, 9B NSQF) in a single group.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {combinedGroups.length === 0 ? (
+            <div className="card">
+              <div className="empty-state">
+                <div className="empty-state-icon"><Layers size={28} /></div>
+                <h3>No combined groups yet</h3>
+                <p>Create a combined period group and add subjects to sync their schedule slots.</p>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => { setEditGroupId(null); setGroupForm({ name: '', requiredPeriods: 5 }); setShowGroupModal(true); }}
+                  style={{ marginTop: '0.5rem' }}
+                >
+                  <Plus size={16} /> Create Combined Group
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(350px, 1fr))', gap: '1.25rem' }}>
+              {combinedGroups.map((group) => {
+                const groupSubjects = subjects.filter((s) => s.combinedGroupId === group.id);
+                return (
+                  <div
+                    key={group.id}
+                    style={{
+                      background: 'var(--color-white)',
+                      border: '2px solid var(--color-border)',
+                      borderRadius: 'var(--radius-lg)',
+                      padding: '1.25rem',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.875rem',
+                      boxShadow: 'var(--shadow-sm)'
+                    }}
+                  >
+                    {/* Card Header */}
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <div>
+                        <h3 style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)', margin: 0 }}>
+                          {group.name}
+                        </h3>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-primary)' }}>
+                          {group.requiredPeriods} periods/week (Synced)
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', gap: '0.25rem' }}>
+                        <button
+                          className="btn btn-ghost btn-icon btn-sm"
+                          onClick={() => {
+                            setEditGroupId(group.id);
+                            setGroupForm({ name: group.name, requiredPeriods: group.requiredPeriods });
+                            setShowGroupModal(true);
+                          }}
+                          title="Edit group"
+                        >
+                          <Pencil size={13} />
+                        </button>
+                        <button
+                          className="btn btn-danger btn-icon btn-sm"
+                          onClick={() => {
+                            removeCombinedGroup(group.id);
+                            showToast('Combined group deleted', 'info');
+                          }}
+                          title="Delete group"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Subjects list */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                      <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>
+                        Linked Subjects ({groupSubjects.length})
+                      </div>
+                      {groupSubjects.length === 0 ? (
+                        <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontStyle: 'italic', padding: '0.5rem 0', background: 'var(--color-surface-2)', borderRadius: 'var(--radius-md)', textAlign: 'center' }}>
+                          No subjects linked yet
+                        </div>
+                      ) : (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
+                          {groupSubjects.map((s) => {
+                            const clsObj = classes.find((c) => c.id === s.classId);
+                            const tObj = teachers.find((t) => t.id === s.teacherId);
+                            return (
+                              <div
+                                key={s.id}
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'space-between',
+                                  background: 'var(--color-surface-2)',
+                                  padding: '0.5rem 0.75rem',
+                                  borderRadius: 'var(--radius-md)',
+                                  fontSize: '0.8rem'
+                                }}
+                              >
+                                <div>
+                                  <div style={{ fontWeight: 700, color: 'var(--text-primary)' }}>
+                                    {clsObj ? `Class ${clsObj.name}${clsObj.section ? `-${clsObj.section}` : ''}` : 'Class Unknown'} — {s.name}
+                                  </div>
+                                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginTop: '0.1rem' }}>
+                                    Teacher: {tObj ? tObj.name : <span style={{ color: 'var(--color-danger)', fontWeight: 600 }}>⚠️ Unassigned</span>}
+                                  </div>
+                                </div>
+                                <button
+                                  className="btn btn-ghost btn-icon btn-xs"
+                                  onClick={() => {
+                                    removeSubjectFromCombinedGroup(s.id);
+                                    showToast('Subject removed from group', 'info');
+                                  }}
+                                  title="Unlink subject"
+                                >
+                                  <Trash2 size={12} />
+                                </button>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Add subject selector */}
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ fontSize: '0.7rem' }}>Add Subject to Group</label>
+                      <select
+                        className="form-control"
+                        style={{ fontSize: '0.8rem', padding: '0.375rem 0.625rem' }}
+                        value=""
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val) {
+                            assignSubjectToCombinedGroup(val, group.id);
+                            showToast('Subject linked to group!', 'success');
+                          }
+                        }}
+                      >
+                        <option value="">Select subject to link…</option>
+                        {subjects
+                          .filter((s) => !s.combinedGroupId)
+                          .map((s) => {
+                            const cObj = classes.find((c) => c.id === s.classId);
+                            const tObj = teachers.find((t) => t.id === s.teacherId);
+                            return (
+                              <option key={s.id} value={s.id}>
+                                {cObj ? `${cObj.name}${cObj.section ? `-${cObj.section}` : ''}` : 'Class'} - {s.name} ({tObj ? tObj.name : 'No Teacher'})
+                              </option>
+                            );
+                          })}
+                      </select>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Combined Group Modal ── */}
+      <Modal
+        isOpen={showGroupModal}
+        onClose={() => { setShowGroupModal(false); setEditGroupId(null); }}
+        title={editGroupId ? 'Edit Combined Group' : 'Create Combined Group'}
+        footer={
+          <>
+            <button className="btn btn-secondary" onClick={() => { setShowGroupModal(false); setEditGroupId(null); }}>Cancel</button>
+            <button className="btn btn-primary" form="group-form" type="submit">
+              {editGroupId ? 'Save Changes' : 'Create Group'}
+            </button>
+          </>
+        }
+      >
+        <form id="group-form" onSubmit={handleGroupSubmit}>
+          <div className="form-group">
+            <label className="form-label required">Group Name</label>
+            <input
+              className="form-control"
+              placeholder="e.g. 9th Grade PE / NSQF Split"
+              value={groupForm.name}
+              onChange={(e) => setGroupForm((f) => ({ ...f, name: e.target.value }))}
+              required
+            />
+            <span className="form-hint">E.g., \"9th PE / NSQF\" or \"11th Computer Science Electives\".</span>
+          </div>
+          <div className="form-group">
+            <label className="form-label required">Periods per Week</label>
+            <input
+              className="form-control"
+              type="number"
+              min="1"
+              max="30"
+              value={groupForm.requiredPeriods}
+              onChange={(e) => setGroupForm((f) => ({ ...f, requiredPeriods: parseInt(e.target.value) || 1 }))}
+              required
+            />
+            <span className="form-hint">All subjects in this combined group will sync to this weekly period count.</span>
+          </div>
+        </form>
       </Modal>
     </div>
   );

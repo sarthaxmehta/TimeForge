@@ -130,6 +130,53 @@ function ClassTimetableGrid({ classId, timetable, subjects, teachers, settings, 
                   }
 
                   const isHomeroom = val?.startsWith?.('__homeroom__');
+                  const isGroup = val?.startsWith?.('__group__');
+
+                  if (isGroup) {
+                    const groupId = val.split(':')[1];
+                    const groupSubs = subjects.filter(
+                      (s) => s.combinedGroupId === groupId && s.classId === classId
+                    );
+                    const colors = applyTheme('#f8fafc', timetableTheme);
+                    return (
+                      <td key={di}>
+                        <div
+                          className="timetable-cell filled parallel-group-cell"
+                          style={{
+                            background: colors.bg,
+                            border: `1.5px solid ${colors.border}`,
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: '4px',
+                            padding: '4px 6px',
+                            textAlign: 'left'
+                          }}
+                        >
+                          {groupSubs.map((sub, idx) => {
+                            const subTeacher = teachers.find((t) => t.id === sub.teacherId);
+                            return (
+                              <div
+                                key={sub.id}
+                                style={{
+                                  borderTop: idx > 0 ? '1px dashed var(--color-border)' : 'none',
+                                  paddingTop: idx > 0 ? '3px' : 0,
+                                }}
+                              >
+                                <div style={{ fontWeight: 800, fontSize: '0.78rem', color: colors.text }}>
+                                  {sub.name}
+                                </div>
+                                {subTeacher && (
+                                  <div style={{ fontSize: '0.68rem', color: colors.text, opacity: 0.8 }}>
+                                    {subTeacher.name}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </td>
+                    );
+                  }
 
                   if (isNonClass || (val?.startsWith?.('__') && !isHomeroom)) {
                     return (
@@ -372,15 +419,28 @@ function TeacherTimetableGrid({ teacherId, teacherTimetable, subjects, classes, 
                   return (
                     <td key={di}>
                       {sub ? (() => {
-                        const partnerSub = sub.mergedWithSubjectId ? subjects.find(o => o.id === sub.mergedWithSubjectId) : null;
-                        const partnerCls = partnerSub ? classes.find(c => c.id === partnerSub.classId) : null;
+                        let partnerClsLabel = '';
+                        if (sub.combinedGroupId) {
+                          const groupPartners = subjects.filter(
+                            (s) => s.combinedGroupId === sub.combinedGroupId && s.teacherId === sub.teacherId && s.id !== sub.id
+                          );
+                          const pClasses = groupPartners.map((s) => classes.find((c) => c.id === s.classId)).filter(Boolean);
+                          if (pClasses.length > 0) {
+                            partnerClsLabel = ' + ' + pClasses.map((c) => `${c.name}${c.section ? `-${c.section}` : ''}`).join(' + ');
+                          }
+                        } else if (sub.mergedWithSubjectId) {
+                          const partnerSub = subjects.find(o => o.id === sub.mergedWithSubjectId);
+                          const partnerCls = partnerSub ? classes.find(c => c.id === partnerSub.classId) : null;
+                          if (partnerCls) {
+                            partnerClsLabel = ` + ${partnerCls.name}${partnerCls.section ? `-${partnerCls.section}` : ''}`;
+                          }
+                        }
                         return (
                           <div className="timetable-cell filled" style={{ background: colors.bg, border: `1.5px solid ${colors.border}` }}>
                             <div className="cell-subject" style={{ color: colors.text }}>{sub.name}</div>
                             {cls && (
                               <div className="cell-teacher" style={{ color: colors.text }}>
-                                {cls.name}{cls.section ? `-${cls.section}` : ''}
-                                {partnerCls && ` + ${partnerCls.name}${partnerCls.section ? `-${partnerCls.section}` : ''}`}
+                                {cls.name}{cls.section ? `-${cls.section}` : ''}{partnerClsLabel}
                               </div>
                             )}
                             {isSubstituteAssignedHere && (
