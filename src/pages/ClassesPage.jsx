@@ -212,6 +212,7 @@ export default function ClassesPage() {
   // Subject modal (for adding brand-new catalogue subject)
   const [showSubjectCatalogueModal, setShowSubjectCatalogueModal] = useState(false);
   const [subjectForm, setSubjectForm] = useState(EMPTY_SUBJ);
+  const [editSubjectId, setEditSubjectId] = useState(null);
 
   // Copy modal
   const [showCopyModal, setShowCopyModal] = useState(false);
@@ -302,10 +303,38 @@ export default function ClassesPage() {
   const handleAddNewSubject = (e) => {
     e.preventDefault();
     if (!subjectForm.name.trim()) return;
-    addSubject({ ...subjectForm, classId: selectedClassId });
-    showToast('Subject added', 'success');
+
+    if (editSubjectId) {
+      updateSubject(editSubjectId, subjectForm);
+      // Sync merged partner if exists
+      const current = subjects.find(s => s.id === editSubjectId);
+      if (current && current.mergedWithSubjectId) {
+        updateSubject(current.mergedWithSubjectId, {
+          name: subjectForm.name,
+          code: subjectForm.code,
+          color: subjectForm.color,
+          isElective: subjectForm.isElective,
+          requiredPeriods: subjectForm.requiredPeriods
+        });
+      }
+      // Sync group subjects if part of combinedGroupId
+      if (current && current.combinedGroupId) {
+        const groupSubs = subjects.filter(s => s.combinedGroupId === current.combinedGroupId && s.id !== editSubjectId);
+        groupSubs.forEach(gs => {
+          updateSubject(gs.id, {
+            color: subjectForm.color,
+            requiredPeriods: subjectForm.requiredPeriods
+          });
+        });
+      }
+      showToast('Subject updated', 'success');
+    } else {
+      addSubject({ ...subjectForm, classId: selectedClassId });
+      showToast('Subject added', 'success');
+    }
     setSubjectForm({ ...EMPTY_SUBJ, color: SUBJECT_COLORS[classSubjects.length % SUBJECT_COLORS.length] });
     setShowSubjectCatalogueModal(false);
+    setEditSubjectId(null);
   };
 
   const handleGroupSubmit = (e) => {
@@ -817,6 +846,24 @@ export default function ClassesPage() {
 
                         <div style={{ display: 'flex', gap: '0.375rem', marginBottom: '0.125rem' }}>
                           <button
+                            className="btn btn-ghost btn-icon btn-sm"
+                            onClick={() => {
+                              setEditSubjectId(s.id);
+                              setSubjectForm({
+                                name: s.name,
+                                code: s.code || '',
+                                teacherId: s.teacherId || '',
+                                requiredPeriods: s.requiredPeriods || 5,
+                                color: s.color || SUBJECT_COLORS[0],
+                                isElective: s.isElective || false
+                              });
+                              setShowSubjectCatalogueModal(true);
+                            }}
+                            title="Edit subject details"
+                          >
+                            <Pencil size={13} />
+                          </button>
+                          <button
                             className="btn btn-danger btn-icon btn-sm"
                             onClick={() => {
                               if (s.mergedWithSubjectId) {
@@ -921,17 +968,17 @@ export default function ClassesPage() {
         </form>
       </Modal>
 
-      {/* ── Add Subject Modal ── */}
+      {/* ── Subject Modal ── */}
       <Modal
         isOpen={showSubjectCatalogueModal}
-        onClose={() => setShowSubjectCatalogueModal(false)}
-        title={`Add Subject to ${activeClass?.name || ''}`}
+        onClose={() => { setShowSubjectCatalogueModal(false); setEditSubjectId(null); setSubjectForm(EMPTY_SUBJ); }}
+        title={editSubjectId ? 'Edit Subject Details' : `Add Subject to ${activeClass?.name || ''}`}
         size="lg"
         footer={
           <>
-            <button className="btn btn-secondary" onClick={() => setShowSubjectCatalogueModal(false)}>Cancel</button>
+            <button className="btn btn-secondary" onClick={() => { setShowSubjectCatalogueModal(false); setEditSubjectId(null); setSubjectForm(EMPTY_SUBJ); }}>Cancel</button>
             <button className="btn btn-primary" form="subject-add-form" type="submit">
-              Add Subject
+              {editSubjectId ? 'Save Changes' : 'Add Subject'}
             </button>
           </>
         }
