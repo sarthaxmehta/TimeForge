@@ -137,36 +137,45 @@ function ClassTimetableGrid({ classId, timetable, subjects, teachers, settings, 
                     const groupSubs = subjects.filter(
                       (s) => s.combinedGroupId === groupId && s.classId === classId
                     );
-                    const colors = applyTheme('#f8fafc', timetableTheme);
                     return (
-                      <td key={di}>
+                      <td key={di} style={{ padding: '0.25rem' }}>
                         <div
-                          className="timetable-cell filled parallel-group-cell"
+                          className="parallel-group-wrapper"
                           style={{
-                            background: colors.bg,
-                            border: `1.5px solid ${colors.border}`,
                             display: 'flex',
                             flexDirection: 'column',
                             gap: '4px',
-                            padding: '4px 6px',
-                            textAlign: 'left'
+                            width: '100%',
+                            minHeight: '64px',
+                            justifyContent: 'center'
                           }}
                         >
-                          {groupSubs.map((sub, idx) => {
+                          {groupSubs.map((sub) => {
                             const subTeacher = teachers.find((t) => t.id === sub.teacherId);
+                            const subColors = applyTheme(sub.color || '#6366f1', timetableTheme);
                             return (
                               <div
                                 key={sub.id}
+                                className="timetable-cell filled parallel-group-item"
                                 style={{
-                                  borderTop: idx > 0 ? '1px dashed var(--color-border)' : 'none',
-                                  paddingTop: idx > 0 ? '3px' : 0,
+                                  background: subColors.bg,
+                                  border: `1.5px solid ${subColors.border}`,
+                                  borderRadius: 'var(--radius-md)',
+                                  padding: '6px 8px',
+                                  textAlign: 'center',
+                                  display: 'flex',
+                                  flexDirection: 'column',
+                                  justifyContent: 'center',
+                                  minWidth: '0',
+                                  boxShadow: 'var(--shadow-sm)',
+                                  transition: 'all var(--transition-fast)'
                                 }}
                               >
-                                <div style={{ fontWeight: 800, fontSize: '0.78rem', color: colors.text }}>
+                                <div className="cell-subject" style={{ fontWeight: 800, fontSize: '0.75rem', color: subColors.text, lineHeight: '1.2' }}>
                                   {sub.name}
                                 </div>
                                 {subTeacher && (
-                                  <div style={{ fontSize: '0.68rem', color: colors.text, opacity: 0.8 }}>
+                                  <div className="cell-teacher" style={{ fontSize: '0.65rem', color: subColors.text, opacity: 0.85, fontWeight: 600, marginTop: '1px' }}>
                                     {subTeacher.name}
                                   </div>
                                 )}
